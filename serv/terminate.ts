@@ -1,14 +1,26 @@
-export default function terminate(server, options = { coredump: false, timeout: 500 }) {
-  const exit = code => {
-    options.coredump ? process.abort() : process.exit(code)
+import { Server } from "http"
+
+export default function terminate(server: Server, options = { coredump: false, timeout: 500 }) {
+  const exit = (code?: number) => {
+    if (options.coredump) {
+      process.abort()
+    }
+    else {
+      process.exit(code)
+    }
   }
 
-  return (code, reason) => (err, promise) => {
+  return (code: number, reason: string) => (err: Error, rej: Promise<Error>) => {
+    console.log(`Exit reason`, reason)
     if (err && err instanceof Error) {
       console.error(err)
     }
 
-    server.close(exit)
-    setTimeout(exit, options.timeout).unref()
+    if (rej) {
+      console.error(rej)
+    }
+
+    setTimeout(() => exit(code), options.timeout)
+    server.close((err) => console.log(err))
   }
 }

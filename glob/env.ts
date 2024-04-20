@@ -10,11 +10,19 @@ export interface ENV_CONFIG {
     NAME: string;
     HTTP_PORT: number;
     LOG_LEVEL: string;
+    
+    GG_KEY_FILE: string;
+
+    JIRA_HOST: string
+    JIRA_TOKEN: string
 }
 
 const ajvEnvConfig = ajv.compile({
     '+@NAME': 'string',
     '@HTTP_PORT': 'number',
+    '+@GG_KEY_FILE': 'string',
+    '+@JIRA_HOST': 'string',
+    '+@JIRA_TOKEN': 'string',
     '@LOG_LEVEL': 'string'
 })
 

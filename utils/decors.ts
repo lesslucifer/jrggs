@@ -222,3 +222,26 @@ export function AsyncSafe(defaultValue?: any) {
         }
     }
 }
+
+export function Catch(handler?: (err: unknown) => void) {
+    return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+        if (!descriptor) return
+
+        const originalFunction = descriptor.value
+        descriptor.value = function (...args: any[]) {
+            try {
+                const result = originalFunction.apply(this, args);
+
+                if (result && result instanceof Promise) {
+                    return result.catch((error: any) => {
+                        handler && handler.apply(null, error);
+                    });
+                }
+
+                return result;
+            } catch (error) {
+                handler && handler.apply(null, error);
+            }
+        }
+    };
+}

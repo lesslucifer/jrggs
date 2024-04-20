@@ -42,9 +42,7 @@ export class Program {
         await this.setup()
 
         const appServer = await new Promise<Server>(resolve => {
-            resolve(
-                this.server.listen(ENV.HTTP_PORT, () => console.log(`Listen on port ${ENV.HTTP_PORT}...`))
-            )
+            resolve(this.server.listen(ENV.HTTP_PORT, () => console.log(`Listen on port ${ENV.HTTP_PORT}...`)))
         });
 
         const exitHandler = terminate(appServer, {
