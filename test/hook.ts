@@ -2,7 +2,7 @@ if (!process.env.config) {
     process.env.config = 'env.test.json';
 }
 
-import * as _ from 'lodash';
+import _ from 'lodash';
 import 'mocha';
 import Program from '../app';
 import TestUtils from './utils/testutils';

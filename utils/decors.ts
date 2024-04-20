@@ -1,16 +1,14 @@
 import { addMiddlewareDecor, argMapperDecor, ExpressRouter, pushDoc, ResponseHandler, SetDoc, setDoc, updateDocument } from 'express-router-ts';
 import { AppLogicError } from './hera';
-import * as ajv2 from './ajv2';
-import Ajv from 'ajv';
 import _ from 'lodash';
 import express = require('express');
 import { GQL, GQLGlobal } from 'gql-ts';
+import { ajvs } from 'ajvs-ts';
 
-const ajv = new Ajv();
-
+const ajv = ajvs()
 export function ValidBody(schema: any, sample: any = undefined) {
-    const ajvSchema = ajv2.craft(schema)
-    const validator = ajv.compile(ajvSchema);
+    const ajvSchema = ajv.transpile(schema)
+    const validator = ajv.compile(schema);
 
     if (sample !== undefined && !validator(sample)) {
         console.warn(`Invalid sample ${JSON.stringify(sample)} for schema ${JSON.stringify(schema)}; Errors=${JSON.stringify(validator.errors)}`)
@@ -29,7 +27,7 @@ export function ValidBody(schema: any, sample: any = undefined) {
 }
 
 export function MultipartFormData(schema: object) {
-    const ajvSchema = ajv2.craft(schema)
+    const ajvSchema = ajv.transpile(schema)
     return SetDoc('requestBody', {
         content: {
             'multipart/form-data': {
@@ -60,7 +58,7 @@ export function RouteIf(condiditon: (req: express.Request) => Promise<boolean> |
 }
 
 export function formatResponseSchema(schema: any, rawAjv: boolean) {
-    return ajv2.craft({
+    return ajv.transpile({
         '@success': 'boolean',
         '@err': {
             '@message': 'string'

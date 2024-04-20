@@ -1,9 +1,7 @@
+import { ajvs } from 'ajvs-ts';
 import * as express from 'express';
 import * as glob from 'glob';
-import * as _ from 'lodash';
-import { ajv2 } from './ajv2';
-const phoneFormatter = require('phone-formatter');
-const rs = require('randomstring')
+import _ from 'lodash';
 
 export type BoxedPromise<T> = T | Promise<T>;
 
@@ -56,7 +54,7 @@ global['BizLogicError'] = BizLogicError
 
 export class Hera {
     TimeTable = new Map<string, number>();
-    ajv = ajv2();
+    ajv = ajvs();
 
     isValidEmailAddress(email: string) {
         var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -218,10 +216,6 @@ export class Hera {
             return await this._retry(f, n - 1, delay, errs);
         }
     }
-    
-    standardlizePhoneNumber(phone: string): string {
-        return phoneFormatter.normalize(phone);
-    }
 
     mongoEqOrIn(val: any) {
         if (_.isArray(val)) {
@@ -241,10 +235,6 @@ export class Hera {
         }
         
         return ret;
-    }
-
-    randomString(length=8) {
-        return rs.generate({length})
     }
 
     async asyncSeqMap<T, R>(arr: T[], fn: AsyncMapIterator<T, R>): Promise<(R | Error)[]> {

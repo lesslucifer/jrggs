@@ -1,8 +1,10 @@
 import _ from 'lodash';
-import newAjv2 from '../utils/ajv2';
 import hera from '../utils/hera';
+import { config as configureDotenv } from 'dotenv';
+import { ajvs } from 'ajvs-ts';
+import path from 'path'
 
-const ajv = newAjv2();
+const ajv = ajvs()
 
 export interface ENV_CONFIG {
     NAME: string;
@@ -10,7 +12,7 @@ export interface ENV_CONFIG {
     LOG_LEVEL: string;
 }
 
-const ajvEnvConfig = ajv({
+const ajvEnvConfig = ajv.compile({
     '+@NAME': 'string',
     '@HTTP_PORT': 'number',
     '@LOG_LEVEL': 'string'
@@ -26,6 +28,7 @@ const envCustomParser = {
 }
 
 function loadConfig(): ENV_CONFIG {
+    configureDotenv({ path: path.resolve(process.cwd(), 'process.env') })
     console.debug('process.env')
     console.debug(JSON.stringify(process.env, null, 2))
     const config: any = _.cloneDeep(ENV_DEFAULT);
@@ -38,7 +41,7 @@ function loadConfig(): ENV_CONFIG {
     }
 
     if (!ajvEnvConfig(config)) throw new Error(`Invalid env config; ${JSON.stringify(ajvEnvConfig.errors, null, 2)}`)
-    return config;
+    return config as ENV_CONFIG;
 }
 
 export const ENV: ENV_CONFIG = loadConfig();
