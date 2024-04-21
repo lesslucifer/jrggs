@@ -38,6 +38,7 @@
     "lodash": "^4.17.21",
     "moment": "^2.24.0",
     "mongodb": "^6.5.0",
+    "node-schedule": "^2.1.1",
     "pug": "^3.0.2",
     "randomstring": "^1.1.5",
     "reflect-metadata": "^0.1.13",

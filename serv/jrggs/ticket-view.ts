@@ -41,9 +41,11 @@ export class TicketViewHandler extends JRGGSHandler {
             }
             else {
                 const rowIndex = rowById.get(issue.key)
-                sheet.updateCell(rowIndex, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
+                if (data[rowIndex][STATUS_COL] !== issue.status) {
+                    sheet.updateCell(rowIndex, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
+                }
 
-                if (col >= DATE_COL_START) {
+                if (col >= DATE_COL_START && data[rowIndex][col] !== issue.abbrevAsignee) {
                     sheet.updateCell(rowIndex, col, issue.abbrevAsignee, { backgroundColor: issue.statusColor })
                 }
             }

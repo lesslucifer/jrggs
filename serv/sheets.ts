@@ -102,9 +102,9 @@ export class SheetServ {
             updateCells: {
                 range: {
                     sheetId: this.sheetId,
-                    startColumnIndex: row,
+                    startRowIndex: row,
                     endRowIndex: row + 1,
-                    startRowIndex: col,
+                    startColumnIndex: col,
                     endColumnIndex: col + 1
                 },
                 rows: [{ values: [this.mkCell(value, format)] }],

@@ -6,6 +6,7 @@ import { Task } from "../models";
 import { ITask } from "../models/task";
 import { ValidBody } from "../utils/decors";
 import { AppLogicError } from "../utils/hera";
+import { execute } from "../serv/jrggs";
 
 class TasksRouter extends ExpressRouter {
     document = {
@@ -16,7 +17,7 @@ class TasksRouter extends ExpressRouter {
     async getAvailableTasks() {
         const now = new Date()
         return await Task.find({ $and: [
-            { begin: { $gte: now } }
+            { begin: { $lte: now } }
         ]}).toArray()
     }
     
@@ -24,8 +25,8 @@ class TasksRouter extends ExpressRouter {
     async getCurrentTasks() {
         const now = new Date()
         return await Task.findOne({ $and: [
-            { begin: { $gte: now } },
-            { end: { $lt: now } }
+            { begin: { $lte: now } },
+            { end: { $gt: now } }
         ]}, { sort: { begin: -1 } })
     }
     
@@ -36,6 +37,7 @@ class TasksRouter extends ExpressRouter {
         '+@spreadsheetId': 'string',
         '+@begin': 'string',
         '+@end': 'string',
+        '+[]@handlers': 'string',
         '++': false
     })
     async addTask(@Body() task: ITask) {
@@ -58,6 +60,7 @@ class TasksRouter extends ExpressRouter {
         '@spreadsheetId': 'string',
         '@begin': 'string',
         '@end': 'string',
+        '[]@handlers': 'string',
         '++': false
     })
     async updateTask(@Params('id') id: string, @Body() task: Partial<ITask>) {
@@ -75,6 +78,19 @@ class TasksRouter extends ExpressRouter {
         }
         
         await Task.updateOne({ _id }, { $set: task })
+        return HC.SUCCESS
+    }
+
+    
+    @POST({path: "/exec"})
+    @ValidBody({
+        '+@sprintId': 'string',
+        '+@spreadsheetId': 'string',
+        '+[]@handlers': 'string',
+        '++': false
+    })
+    async executeTask(@Body() task: Partial<ITask>) {
+        await execute(task.sprintId, task.spreadsheetId, task.handlers)
         return HC.SUCCESS
     }
 }

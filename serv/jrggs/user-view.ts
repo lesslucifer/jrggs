@@ -23,9 +23,9 @@ export class UserViewHandler extends JRGGSHandler {
         const col = data[DATE_ROW].indexOf(today) + Number(now.hour() >= 12)
 
         let newRow = data.length
-        const rowById = new Map(data.slice(DATA_ROW).map((row, index) => [row[0], index + DATA_ROW]))
+        const rowById = new Map(data.slice(DATA_ROW).map((row, index) => [`${row[0]}:${row[1]}`, index + DATA_ROW]))
         for (const issue of issues) {
-            if (!rowById.has(issue.key)) {
+            if (!rowById.has(issue.assigneeKey)) {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
                     sheet.mkCell(issue.assignee),
@@ -40,10 +40,12 @@ export class UserViewHandler extends JRGGSHandler {
                 ])
             }
             else {
-                const rowIndex = rowById.get(issue.key)
-                sheet.updateCell(rowIndex, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
+                const rowIndex = rowById.get(issue.assigneeKey)
+                if (data[rowIndex][STATUS_COL] !== issue.status) {
+                    sheet.updateCell(rowIndex, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
+                }
 
-                if (col >= DATE_COL_START) {
+                if (col >= DATE_COL_START && data[rowIndex][col] !== issue.status) {
                     sheet.updateCell(rowIndex, col, issue.status, { backgroundColor: issue.statusColor })
                 }
             }

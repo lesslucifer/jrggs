@@ -61,7 +61,7 @@ export class JIRAIssue {
     }
 
     get assignee(): string {
-        return _.get(this.issue, 'fields.assignee.displayName')
+        return _.get(this.issue, 'fields.assignee.displayName') ?? ''
     }
 
     get lowerCaseAssignee() {
@@ -72,7 +72,7 @@ export class JIRAIssue {
         return USER_ABBREV[this.lowerCaseAssignee] ?? this.assignee
     }
 
-    get assignedKey() {
+    get assigneeKey() {
         return `${this.assignee}:${this.key}`
     }
 }
