@@ -6,7 +6,19 @@ import path from 'path'
 
 const ajv = ajvs()
 
-export interface ENV_CONFIG {
+export interface ENV_DB_CONFIG {
+    MONGO_CONNECTION: string;
+    MONGO_DB: string;
+    MONGO_OPTIONS: any;
+}
+
+const ajvEnvDbConfig = {
+    '+@MONGO_CONNECTION': 'string',
+    '+@MONGO_DB': 'string',
+    'MONGO_OPTIONS': {}
+}
+
+export interface ENV_CONFIG extends ENV_DB_CONFIG {
     NAME: string;
     HTTP_PORT: number;
     LOG_LEVEL: string;
@@ -23,7 +35,8 @@ const ajvEnvConfig = ajv.compile({
     '+@GG_KEY_FILE': 'string',
     '+@JIRA_HOST': 'string',
     '+@JIRA_TOKEN': 'string',
-    '@LOG_LEVEL': 'string'
+    '@LOG_LEVEL': 'string',
+    ...ajvEnvDbConfig
 })
 
 const ENV_DEFAULT: Partial<ENV_CONFIG> = {

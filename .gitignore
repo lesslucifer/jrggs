@@ -7,3 +7,4 @@ coverage
 dist
 env*.json
 stacks-env.yaml
+*key.json
