@@ -1,4 +1,4 @@
-import { Body, ExpressRouter, GET, POST, PUT, Params } from "express-router-ts";
+import { Body, DELETE, ExpressRouter, GET, POST, PUT, Params } from "express-router-ts";
 import moment from "moment";
 import { ObjectId } from "mongodb";
 import HC from "../glob/hc";
@@ -80,7 +80,12 @@ class TasksRouter extends ExpressRouter {
         await Task.updateOne({ _id }, { $set: task })
         return HC.SUCCESS
     }
-
+    
+    @DELETE({path: "/:id"})
+    async deleteTask(@Params('id') id: string) {
+        await Task.deleteOne({ _id: new ObjectId(id) })
+        return HC.SUCCESS
+    }
     
     @POST({path: "/exec"})
     @ValidBody({

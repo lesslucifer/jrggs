@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>JRGGS Tasks</title>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+</head>
+
+<body>
+    <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Mulish:wght@200;300;400;700&display=swap"
+        rel="stylesheet">
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+</body>
+
+</html>
+
+<script type="text/babel">
+    (() => {
+        const domContainer = document.querySelector('#root');
+        const root = ReactDOM.createRoot(domContainer);
+        root.render(React.createElement(Tasks));
+    })()
+
+    const { useState, useEffect } = React
+
+    function Tasks() {
+        const [tasks, setTasks] = useState([])
+
+        useEffect(() => {
+        }, [])
+
+        return (<>
+        {tasks.map(t => <div>{JSON.stringify(t)}</div>)}
+        </>)
+    }
+</script>
+
+<style>
+</style>

@@ -26,6 +26,7 @@ export class Program {
         server.use(bodyParser.json(<any>{limit: '10mb', extended: true}));
         server.use(createSesssionObject());
         server.all('*', cors());
+        server.use(express.static('static'))
 
         APIInfo.Logging = (winston.npm.levels[ENV.LOG_LEVEL] || 0) > 2 // greater than info level
         await ExpressRouter.loadDir(server, `${__dirname}/routes`, {
