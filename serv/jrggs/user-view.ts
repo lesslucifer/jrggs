@@ -46,7 +46,7 @@ export class UserViewHandler extends JRGGSHandler {
                 }
 
                 if (col >= DATE_COL_START && data[rowIndex][col] !== issue.status) {
-                    sheet.updateCell(rowIndex, col, issue.status, { backgroundColor: issue.statusColor })
+                    sheet.updateCell(rowIndex, col, issue.abbrevStatus, { backgroundColor: issue.statusColor })
                 }
             }
         }

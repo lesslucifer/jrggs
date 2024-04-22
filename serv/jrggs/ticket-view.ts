@@ -31,11 +31,11 @@ export class TicketViewHandler extends JRGGSHandler {
                     sheet.mkCell(issue.key),
                     sheet.mkCell(issue.summary),
                     sheet.mkCell(issue.type),
-                    sheet.mkCell(issue.abbrevStatus, { backgroundColor: issue.statusColor }),
+                    sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
                     ..._.range(20).map(i => {
                         if (i + DATE_COL_START !== col) return sheet.mkCell('')
-                        return sheet.mkCell(issue.assignee, { backgroundColor: issue.statusColor })
+                        return sheet.mkCell(issue.abbrevAsignee, { backgroundColor: issue.statusColor })
                     })
                 ])
             }
