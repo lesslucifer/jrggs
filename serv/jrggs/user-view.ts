@@ -4,6 +4,7 @@ import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
 import _ from "lodash";
+import ENV from "../../glob/env";
 
 export class UserViewHandler extends JRGGSHandler {
     @Catch(console.log)
@@ -29,13 +30,13 @@ export class UserViewHandler extends JRGGSHandler {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
                     sheet.mkCell(issue.assignee),
-                    sheet.mkCell(issue.key),
+                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}${issue.key}"; "${issue.key}")` }),
                     sheet.mkCell(issue.type),
-                    sheet.mkCell(issue.abbrevStatus, { backgroundColor: issue.statusColor }),
+                    sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
                     ..._.range(20).map(i => {
                         if (i + DATE_COL_START !== col) return sheet.mkCell('')
-                        return sheet.mkCell(issue.status, { backgroundColor: issue.statusColor })
+                        return sheet.mkCell(issue.abbrevStatus, { backgroundColor: issue.statusColor })
                     })
                 ])
             }
@@ -45,7 +46,7 @@ export class UserViewHandler extends JRGGSHandler {
                     sheet.updateCell(rowIndex, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
                 }
 
-                if (col >= DATE_COL_START && data[rowIndex][col] !== issue.status) {
+                if (col >= DATE_COL_START && data[rowIndex][col] !== issue.abbrevStatus) {
                     sheet.updateCell(rowIndex, col, issue.abbrevStatus, { backgroundColor: issue.statusColor })
                 }
             }

@@ -21,7 +21,7 @@ export async function execute(sprintId: string, spreadsheetId: string, handlers:
         const handler = getJRGGSHandler(h)
         if (!handler) continue
 
-        await handler.process(issues, sheets)
+        const result = await handler.process(issues, sheets)
     }
 }
 

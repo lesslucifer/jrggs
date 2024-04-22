@@ -115,9 +115,9 @@ export class SheetServ {
         return req
     }
 
-    mkCell(value: string | number, format?: sheets_v4.Schema$CellFormat): sheets_v4.Schema$CellData {
+    mkCell(value: string | number | sheets_v4.Schema$ExtendedValue, format?: sheets_v4.Schema$CellFormat): sheets_v4.Schema$CellData {
         return Object.assign({
-            userEnteredValue: _.isString(value) ? { stringValue: value } : { numberValue: value }
+            userEnteredValue: _.isString(value) ? { stringValue: value } : _.isNumber(value) ? { numberValue: value } : value
         }, format && {
             userEnteredFormat: format
         })

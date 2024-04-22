@@ -4,9 +4,10 @@ import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
 import _ from "lodash";
+import ENV from "../../glob/env";
 
 export class TicketViewHandler extends JRGGSHandler {
-    @Catch(console.log)
+    @Catch(err => console.log('TicketViewHandler err', err))
     async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
         const STATUS_COL = 3
         const DATE_ROW = 4
@@ -28,7 +29,7 @@ export class TicketViewHandler extends JRGGSHandler {
             if (!rowById.has(issue.key)) {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
-                    sheet.mkCell(issue.key),
+                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}${issue.key}"; "${issue.key}")` }),
                     sheet.mkCell(issue.summary),
                     sheet.mkCell(issue.type),
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
