@@ -121,6 +121,7 @@ const STATUS_ABBREV = _.mapKeys({
     'Myla Ross Enerio': 'MYLA',
     'Ariel Cuerdo': 'ARIEL',
     'Patrick Roi Ocampo': 'PO',
+    'Joseph Serrano': 'JS',
     'An Dang': 'AN',
     'Tan Le': 'TAN',
     'Joan Chongco': 'JOAN',

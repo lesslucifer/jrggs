@@ -30,7 +30,7 @@ export class UserViewHandler extends JRGGSHandler {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
                     sheet.mkCell(issue.assignee),
-                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}${issue.key}"; "${issue.key}")` }),
+                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}browse/${issue.key}"; "${issue.key}")` }),
                     sheet.mkCell(issue.type),
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
