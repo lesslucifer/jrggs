@@ -34,9 +34,18 @@
 
     const { useState, useEffect } = React
 
+    const DEFAULT_TASK = {
+        sprint: '',
+        sprintId: '',
+        spreadsheetId: '',
+        begin: moment().format('YYYY-MM-DD'),
+        end: moment().format('YYYY-MM-DD'),
+    }
+
     function Tasks() {
         const [tasks, setTasks] = useState([])
         const [editingId, setEditingId] = useState(null)
+        const [addingTask, setAddingTask] = useState(DEFAULT_TASK)
 
         const onTaskAction = async (action, task) => {
             if (action === 'EDIT') {
@@ -98,6 +107,17 @@
             }
         }
 
+        const onAddTask = async (task) => {
+            const newTask = {
+                ..._.omit(task, "_id"),
+                handlers: ["TicketView", "UserView"]
+            }
+            const resp = await axios.post(`https://jrggs.vulq.io.vn/tasks`, newTask)
+            newTask._id = resp.data._id
+            setTasks(tasks => [...tasks, newTask])
+            setAddingTask({...DEFAULT_TASK})
+        }
+
         useEffect(() => {
             (async () => {
                 const resp = await axios.get('https://jrggs.vulq.io.vn/tasks')
@@ -125,6 +145,7 @@
                         return <Task key={task._id} hideAction={!!editingId} task={task} onAction={onTaskAction} />
                     }
                 })}
+                <EditingTask task={addingTask} onSave={onAddTask} onCancel={() => setAddingTask({ ...DEFAULT_TASK })} saveText="Add" cancelText="Reset" />
             </table>
         </div>)
     }
@@ -160,8 +181,8 @@
             <td><input type="date" value={moment(task.begin).format('YYYY-MM-DD')} onChange={e => setTask(t => ({ ...t, begin: e.target.value }))} style={{ width: '100%' }} /></td>
             <td><input type="date" value={moment(task.end).format('YYYY-MM-DD')} onChange={e => setTask(t => ({ ...t, end: e.target.value }))} style={{ width: '100%' }} /></td>
             <td>
-                <button onClick={() => props.onSave && props.onSave(task)}>Save</button>
-                <button onClick={() => props.onCancel && props.onCancel()}>Cancel</button>
+                <button onClick={() => props.onSave && props.onSave(task)}>{props.saveText || 'Save'}</button>
+                <button onClick={() => props.onCancel && props.onCancel()}>{props.cancelText || 'Cancel'}</button>
             </td>
         </tr>)
     }
