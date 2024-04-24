@@ -17,7 +17,7 @@ class TasksRouter extends ExpressRouter {
     async getAvailableTasks() {
         const now = new Date()
         return await Task.find({ $and: [
-            { begin: { $lte: now } }
+            { end: { $gt: now } },
         ]}).toArray()
     }
     

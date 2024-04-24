@@ -11,6 +11,9 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -33,15 +36,150 @@
 
     function Tasks() {
         const [tasks, setTasks] = useState([])
+        const [editingId, setEditingId] = useState(null)
+
+        const onTaskAction = async (action, task) => {
+            if (action === 'EDIT') {
+                setEditingId(task._id)
+                return
+            }
+            if (action === 'RUN') {
+                const result = await Swal.fire({
+                    title: "Running",
+                    text: `Trigger task of sprint: ${task.sprint}!`,
+                    showLoaderOnConfirm: true,
+                    confirmButtonText: "Run",
+                    preConfirm: async (login) => {
+                        await axios.post('https://jrggs.vulq.io.vn/tasks/exec', {
+                            sprintId: task.sprintId,
+                            spreadsheetId: task.spreadsheetId,
+                            handlers: task.handlers
+                        })
+                    },
+                    allowOutsideClick: () => !Swal.isLoading()
+                });
+                if (result.isConfirmed) {
+                    await Swal.fire({
+                        title: "Done!",
+                        text: `Task of sprint ${task.sprint} has run successfully`,
+                        icon: "success"
+                    });
+                }
+                return
+            }
+            if (action === 'DELETE') {
+                const result = await Swal.fire({
+                    title: "Are you sure?",
+                    text: "You won't be able to revert this!",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes, delete it!"
+                })
+                if (result.isConfirmed) {
+                    await axios.delete(`https://jrggs.vulq.io.vn/tasks/${task._id}`)
+                    setTasks(tasks => tasks.filter(t => t._id !== task._id))
+                }
+                return
+            }
+        }
+
+        const onSaveEditingTask = async (task) => {
+            const result = await Swal.fire({
+                title: "Are you sure?",
+                text: "Do you want to save editing task",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Save"
+            })
+            if (result.isConfirmed) {
+                await axios.put(`https://jrggs.vulq.io.vn/tasks/${task._id}`, _.omit(task, "_id"))
+                setTasks(tasks => tasks.map(t => t._id === task._id ? task : t))
+                setEditingId(null)
+            }
+        }
 
         useEffect(() => {
+            (async () => {
+                const resp = await axios.get('https://jrggs.vulq.io.vn/tasks')
+                console.log(resp.data.data)
+                setTasks(resp.data.data || [])
+            })().catch()
         }, [])
 
-        return (<>
-        {tasks.map(t => <div>{JSON.stringify(t)}</div>)}
-        </>)
+        return (<div>
+            <h2>JRGGS Tasks</h2>
+            <table>
+                <tr>
+                    <th>Sprint</th>
+                    <th>Sprint ID</th>
+                    <th>SpreasheetID</th>
+                    <th>Begin</th>
+                    <th>End</th>
+                    <th>Action</th>
+                </tr>
+                {tasks.map((task) => {
+                    if (editingId === task._id) {
+                        return <EditingTask key={task._id} task={task} onSave={onSaveEditingTask} onCancel={() => setEditingId(null)} />
+                    }
+                    else {
+                        return <Task key={task._id} hideAction={!!editingId} task={task} onAction={onTaskAction} />
+                    }
+                })}
+            </table>
+        </div>)
+    }
+
+    function Task({ task, hideAction, onAction }) {
+        return (<tr>
+            <td>{task.sprint}</td>
+            <td>{task.sprintId}</td>
+            <td><a href={`https://docs.google.com/spreadsheets/d/${task.spreadsheetId}/edit`} target="_blank">{task.spreadsheetId}</a></td>
+            <td>{moment(task.begin).format('YYYY-MM-DD')}</td>
+            <td>{moment(task.end).format('YYYY-MM-DD')}</td>
+            <td>
+                {!hideAction && <div>
+                    <button onClick={() => onAction && onAction('EDIT', task)}>Edit</button>
+                    <button onClick={() => onAction && onAction('RUN', task)}>Run</button>
+                    <button onClick={() => onAction && onAction('DELETE', task)}>Delete</button>
+                </div>}
+            </td>
+        </tr>)
+    }
+
+    function EditingTask(props) {
+        const [task, setTask] = useState({})
+
+        useEffect(() => {
+            setTask(props.task || {})
+        }, [props.task])
+
+        return (<tr>
+            <td><input value={task.sprint} onChange={e => setTask(t => ({ ...t, sprint: e.target.value }))} /></td>
+            <td><input value={task.sprintId} onChange={e => setTask(t => ({ ...t, sprintId: e.target.value }))} /></td>
+            <td><input value={task.spreadsheetId} onChange={e => setTask(t => ({ ...t, spreadsheetId: e.target.value }))} style={{ width: '100%' }} /></td>
+            <td><input type="date" value={moment(task.begin).format('YYYY-MM-DD')} onChange={e => setTask(t => ({ ...t, begin: e.target.value }))} style={{ width: '100%' }} /></td>
+            <td><input type="date" value={moment(task.end).format('YYYY-MM-DD')} onChange={e => setTask(t => ({ ...t, end: e.target.value }))} style={{ width: '100%' }} /></td>
+            <td>
+                <button onClick={() => props.onSave && props.onSave(task)}>Save</button>
+                <button onClick={() => props.onCancel && props.onCancel()}>Cancel</button>
+            </td>
+        </tr>)
     }
 </script>
 
 <style>
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    th,
+    td {
+        text-align: left;
+        padding: 8px;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f2f2f2;
+    }
 </style>
