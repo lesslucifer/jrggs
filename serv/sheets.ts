@@ -58,7 +58,7 @@ export class GGSpreadsheets {
         return new SheetServ(this, sheetName, sheetId)
     }
 
-    async getData(range: string) {
+    async getData(range: string): Promise<string[][]> {
         const sheets = await this.getSheets()
         const resp = await sheets.spreadsheets.values.get({
             spreadsheetId: this.spreadsheetId,

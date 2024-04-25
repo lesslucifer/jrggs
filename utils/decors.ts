@@ -234,13 +234,13 @@ export function Catch(handler?: (err: unknown) => void) {
 
                 if (result && result instanceof Promise) {
                     return result.catch((error: any) => {
-                        handler && handler.apply(null, error);
+                        handler && handler.call(error);
                     });
                 }
 
                 return result;
             } catch (error) {
-                handler && handler.apply(null, error);
+                handler && handler.call(error);
             }
         }
     };

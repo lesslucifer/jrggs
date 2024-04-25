@@ -3,7 +3,7 @@ import { JIRAIssue } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
-import _ from "lodash";
+import _, { Dictionary } from "lodash";
 import ENV from "../../glob/env";
 
 export class UserViewHandler extends JRGGSHandler {
@@ -25,6 +25,8 @@ export class UserViewHandler extends JRGGSHandler {
 
         let newRow = data.length
         const rowById = new Map(data.slice(DATA_ROW).map((row, index) => [`${row[0]}:${row[1]}`, index + DATA_ROW]))
+        const rowsByTicketKey = _.chain(data.slice(DATA_ROW)).map((r, idx) => ({ k: r[1], v: idx + DATA_ROW })).groupBy('k').mapValues(rows => rows.map(r => r.v)).value()
+
         for (const issue of issues) {
             if (!rowById.has(issue.assigneeKey)) {
                 rowById.set(issue.key, newRow++)
@@ -49,6 +51,14 @@ export class UserViewHandler extends JRGGSHandler {
                 if (col >= DATE_COL_START && data[rowIndex][col] !== issue.abbrevStatus) {
                     sheet.updateCell(rowIndex, col, issue.abbrevStatus, { backgroundColor: issue.statusColor })
                 }
+            }
+
+            const rowIndex = rowById.get(issue.assigneeKey)
+            const otherRows = rowsByTicketKey[issue.key] ?? []
+            for (const r of otherRows) {
+                if (rowIndex === r) continue
+                if (col <= 0 || !data[r][col - 1] || data[r][col - 1].startsWith('→')) continue
+                sheet.updateCell(r, col, `→${issue.abbrevAsignee}`, { backgroundColor: issue.statusColor })
             }
         }
         

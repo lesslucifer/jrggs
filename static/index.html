@@ -34,6 +34,9 @@
 
     const { useState, useEffect } = React
 
+    // const HOST = 'https://jrggs.vulq.io.vn'
+    const HOST = 'http://localhost:4892'
+
     const DEFAULT_TASK = {
         sprint: '',
         sprintId: '',
@@ -59,7 +62,7 @@
                     showLoaderOnConfirm: true,
                     confirmButtonText: "Run",
                     preConfirm: async (login) => {
-                        await axios.post('https://jrggs.vulq.io.vn/tasks/exec', {
+                        await axios.post(`${HOST}/tasks/exec`, {
                             sprintId: task.sprintId,
                             spreadsheetId: task.spreadsheetId,
                             handlers: task.handlers
@@ -85,7 +88,7 @@
                     confirmButtonText: "Yes, delete it!"
                 })
                 if (result.isConfirmed) {
-                    await axios.delete(`https://jrggs.vulq.io.vn/tasks/${task._id}`)
+                    await axios.delete(`${HOST}/tasks/${task._id}`)
                     setTasks(tasks => tasks.filter(t => t._id !== task._id))
                 }
                 return
@@ -101,7 +104,7 @@
                 confirmButtonText: "Save"
             })
             if (result.isConfirmed) {
-                await axios.put(`https://jrggs.vulq.io.vn/tasks/${task._id}`, _.omit(task, "_id"))
+                await axios.put(`${HOST}/tasks/${task._id}`, _.omit(task, "_id"))
                 setTasks(tasks => tasks.map(t => t._id === task._id ? task : t))
                 setEditingId(null)
             }
@@ -112,7 +115,7 @@
                 ..._.omit(task, "_id"),
                 handlers: ["TicketView", "UserView"]
             }
-            const resp = await axios.post(`https://jrggs.vulq.io.vn/tasks`, newTask)
+            const resp = await axios.post(`${HOST}/tasks`, newTask)
             newTask._id = resp.data._id
             setTasks(tasks => [...tasks, newTask])
             setAddingTask({...DEFAULT_TASK})
@@ -120,7 +123,7 @@
 
         useEffect(() => {
             (async () => {
-                const resp = await axios.get('https://jrggs.vulq.io.vn/tasks')
+                const resp = await axios.get(`${HOST}/tasks`)
                 console.log(resp.data.data)
                 setTasks(resp.data.data || [])
             })().catch()
