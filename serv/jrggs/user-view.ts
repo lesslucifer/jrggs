@@ -44,10 +44,6 @@ export class UserViewHandler extends JRGGSHandler {
             }
             else {
                 const rowIndex = rowById.get(issue.assigneeKey)
-                if (data[rowIndex][STATUS_COL] !== issue.status) {
-                    sheet.updateCell(rowIndex, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
-                }
-
                 if (col >= DATE_COL_START && data[rowIndex][col] !== issue.abbrevStatus) {
                     sheet.updateCell(rowIndex, col, issue.abbrevStatus, { backgroundColor: issue.statusColor })
                 }
@@ -56,6 +52,10 @@ export class UserViewHandler extends JRGGSHandler {
             const rowIndex = rowById.get(issue.assigneeKey)
             const otherRows = rowsByTicketKey[issue.key] ?? []
             for (const r of otherRows) {
+                if (data[r][STATUS_COL] !== issue.status) {
+                    sheet.updateCell(r, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
+                }
+
                 if (rowIndex === r) continue
                 if (col <= 0 || !data[r][col - 1] || data[r][col - 1].startsWith('→')) continue
                 sheet.updateCell(r, col, `→${issue.abbrevAsignee}`, { backgroundColor: issue.statusColor })
