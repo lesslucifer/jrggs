@@ -29,7 +29,7 @@ export class TicketViewHandler extends JRGGSHandler {
             if (!rowById.has(issue.key)) {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
-                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}${issue.key}"; "${issue.key}")` }),
+                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}browse/${issue.key}"; "${issue.key}")` }),
                     sheet.mkCell(issue.summary),
                     sheet.mkCell(issue.type),
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
