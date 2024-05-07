@@ -44,6 +44,14 @@ export class JIRAIssue {
         return _.get(this.issue, 'fields.customfield_10033') ?? 0
     }
 
+    get sprints(): string {
+        return _.chain(_.get(this.issue, 'fields.customfield_10580', [])).sortBy(sp => sp.id ?? 0).map(sp => sp.name ?? 'Unknown sprint').join('\n').value()
+    }
+
+    get summaryWithSprint(): string {
+        return [this.summary, this.sprints].join('\n')
+    }
+
     get status(): string {
         return _.get(this.issue, 'fields.status.name')
     }

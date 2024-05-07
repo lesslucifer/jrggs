@@ -90,7 +90,7 @@ export class SheetServ {
                 rows: rows.map(row => ({
                     values: row
                 })),
-                fields: 'userEnteredValue,userEnteredFormat'
+                fields: 'userEnteredValue,userEnteredFormat,note'
             }
         }
         this.requests.push(request)
@@ -108,7 +108,25 @@ export class SheetServ {
                     endColumnIndex: col + 1
                 },
                 rows: [{ values: [this.mkCell(value, format)] }],
-                fields: 'userEnteredValue,userEnteredFormat'
+                fields: 'userEnteredValue,userEnteredFormat,note'
+            }
+        }
+        this.requests.push(req)
+        return req
+    }
+
+    updateCellWithData(row: number, col: number, data: sheets_v4.Schema$CellData): sheets_v4.Schema$Request {
+        const req = {
+            updateCells: {
+                range: {
+                    sheetId: this.sheetId,
+                    startRowIndex: row,
+                    endRowIndex: row + 1,
+                    startColumnIndex: col,
+                    endColumnIndex: col + 1
+                },
+                rows: [{ values: [data] }],
+                fields: 'userEnteredValue,userEnteredFormat,note'
             }
         }
         this.requests.push(req)
@@ -119,7 +137,7 @@ export class SheetServ {
         return Object.assign({
             userEnteredValue: _.isString(value) ? { stringValue: value } : _.isNumber(value) ? { numberValue: value } : value
         }, format && {
-            userEnteredFormat: format
+            userEnteredFormat: format,
         })
     }
 
