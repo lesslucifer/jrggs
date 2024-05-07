@@ -31,8 +31,7 @@ export class UserViewHandler extends JRGGSHandler {
         let newRow = data.length
         const rowById = new Map(data.slice(DATA_ROW).map((row, index) => [`${row[0]}:${row[1]}`, index + DATA_ROW]))
         const rowsByTicketKey = _.chain(data.slice(DATA_ROW)).map((r, idx) => ({ k: r[1], v: idx + DATA_ROW })).groupBy('k').mapValues(rows => rows.map(r => r.v)).value()
-        const ticketKeys = Object.keys(rowsByTicketKey)
-        if (!ticketKeys.length) return
+        const ticketKeys = Object.keys(rowsByTicketKey) ?? []
 
         const ticketMetas = await JiraIssueMetadata.find({ key: {$in: ticketKeys} }).toArray()
         const metaByTicketKey = _.keyBy(ticketMetas, t => t.key)

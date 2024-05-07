@@ -5,11 +5,16 @@ import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
 import _ from "lodash";
 import ENV from "../../glob/env";
+import { JiraIssueMetadata } from "../../models";
+import { AnyBulkWriteOperation } from "mongodb";
+import { IJiraIssueMetadata } from "../../models/issue-metadata";
 
 export class TicketViewHandler extends JRGGSHandler {
     @Catch(err => console.log('TicketViewHandler err', err))
     async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
+        const SUMMARY_COL = 1
         const STATUS_COL = 3
+        const SP_COL = 4
         const DATE_ROW = 4
         const DATE_COL_START = 5
         const DATA_ROW = 6
@@ -25,6 +30,12 @@ export class TicketViewHandler extends JRGGSHandler {
 
         let newRow = data.length
         const rowById = new Map(data.slice(DATA_ROW).map((row, index) => [row[0], index + DATA_ROW]))
+        const ticketKeys = [...rowById.keys()]
+
+        const ticketMetas = await JiraIssueMetadata.find({ key: {$in: ticketKeys} }).toArray()
+        const metaByTicketKey = _.keyBy(ticketMetas, t => t.key)
+        const updatedMeta: AnyBulkWriteOperation<IJiraIssueMetadata>[] = []
+
         for (const issue of issues) {
             if (!rowById.has(issue.key)) {
                 rowById.set(issue.key, newRow++)
@@ -48,6 +59,15 @@ export class TicketViewHandler extends JRGGSHandler {
 
                 if (col >= DATE_COL_START && data[rowIndex][col] !== issue.abbrevAsignee) {
                     sheet.updateCell(rowIndex, col, issue.abbrevAsignee, { backgroundColor: issue.statusColor })
+                }
+
+                if (metaByTicketKey[issue.key]?.sprints !== issue.sprints) {
+                    sheet.updateCellWithData(rowIndex, SUMMARY_COL, { ...sheet.mkCell(issue.summary), note: issue.sprints })
+                    updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { sprints: issue.sprints } }, upsert: true } })
+                }
+
+                if (data[rowIndex][SP_COL] !== issue.storyPoint.toString()) {
+                    sheet.updateCell(rowIndex, SP_COL, issue.storyPoint)
                 }
             }
         }
