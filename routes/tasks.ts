@@ -21,6 +21,11 @@ class TasksRouter extends ExpressRouter {
         ]}).toArray()
     }
     
+    @GET({path: "/all"})
+    async getAllTasks() {
+        return await Task.find().toArray()
+    }
+    
     @GET({path: "/current"})
     async getCurrentTasks() {
         const now = new Date()

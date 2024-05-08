@@ -34,8 +34,8 @@
 
     const { useState, useEffect } = React
 
-    const HOST = 'https://jrggs.vulq.io.vn'
-    // const HOST = 'http://localhost:4892'
+    // const HOST = 'https://jrggs.vulq.io.vn'
+    const HOST = 'http://localhost:4892'
 
     const DEFAULT_TASK = {
         sprint: '',
@@ -47,6 +47,7 @@
 
     function Tasks() {
         const [tasks, setTasks] = useState([])
+        const [isShowAll, setIsShowAll] = useState(false)
         const [editingId, setEditingId] = useState(null)
         const [addingTask, setAddingTask] = useState(DEFAULT_TASK)
 
@@ -121,16 +122,21 @@
             setAddingTask({...DEFAULT_TASK})
         }
 
+        const reloadTasks = async () => {
+            const resp = await axios.get(`${HOST}/tasks${isShowAll ? '/all' : ''}`)
+            setTasks(resp.data.data || [])
+        }
+
         useEffect(() => {
-            (async () => {
-                const resp = await axios.get(`${HOST}/tasks`)
-                console.log(resp.data.data)
-                setTasks(resp.data.data || [])
-            })().catch()
-        }, [])
+            reloadTasks().catch()
+        }, [isShowAll])
 
         return (<div>
-            <h2>JRGGS Tasks</h2>
+            <div class="header">
+                <h2>JRGGS Tasks</h2>
+                <input id="showAllBox" type="checkbox" value={isShowAll} onChange={() => setIsShowAll(show => !show)} />
+                <label for="showAllBox">Show all</label>
+            </div>
             <table>
                 <tr>
                     <th>Sprint</th>
@@ -205,5 +211,14 @@
 
     tr:nth-child(even) {
         background-color: #f2f2f2;
+    }
+
+    .header {
+        display: flex;
+        align-items: center;
+    }
+
+    #showAllBox {
+        margin-left: 2rem;
     }
 </style>
