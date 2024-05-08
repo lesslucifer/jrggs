@@ -51,6 +51,7 @@ export class UserViewHandler extends JRGGSHandler {
                         return sheet.mkCell(issue.abbrevStatus, { backgroundColor: issue.statusColor })
                     })
                 ])
+                updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { summaryWithSprints: issue.summaryWithSprint } }, upsert: true } })
             }
             else {
                 const rowIndex = rowById.get(issue.assigneeKey)

@@ -41,7 +41,7 @@ export class TicketViewHandler extends JRGGSHandler {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
                     sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}browse/${issue.key}"; "${issue.key}")` }),
-                    sheet.mkCell(issue.summary),
+                    { ...sheet.mkCell(issue.summary), note: issue.sprints },
                     sheet.mkCell(issue.type),
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
@@ -50,6 +50,7 @@ export class TicketViewHandler extends JRGGSHandler {
                         return sheet.mkCell(issue.abbrevAsignee, { backgroundColor: issue.statusColor })
                     })
                 ])
+                updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { sprints: issue.sprints } }, upsert: true } })
             }
             else {
                 const rowIndex = rowById.get(issue.key)
