@@ -62,14 +62,16 @@
                     text: `Trigger task of sprint: ${task.sprint}!`,
                     showLoaderOnConfirm: true,
                     confirmButtonText: "Run",
-                    preConfirm: async (login) => {
+                    preConfirm: async (handlers) => {
                         await axios.post(`${HOST}/tasks/exec`, {
                             sprintId: task.sprintId,
                             spreadsheetId: task.spreadsheetId,
-                            handlers: task.handlers
+                            handlers: handlers.split(",").map(s => s.trim()).filter(s => !!s)
                         })
                     },
-                    allowOutsideClick: () => !Swal.isLoading()
+                    allowOutsideClick: () => !Swal.isLoading(),
+                    input: 'text',
+                    inputValue: 'TicketView,UserView,EstSP'
                 });
                 if (result.isConfirmed) {
                     await Swal.fire({

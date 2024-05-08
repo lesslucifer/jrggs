@@ -83,6 +83,10 @@ export class JIRAIssue {
     get assigneeKey() {
         return `${this.assignee}:${this.key}`
     }
+
+    get estSP() {
+        return this.storyPoint * (STATUS_SP_EST[this.lowerCaseStatus] ?? 1)
+    }
 }
 
 const STATUS_ABBREV = _.mapKeys({
@@ -104,6 +108,27 @@ const STATUS_ABBREV = _.mapKeys({
     'PO review': 'POR',
     'Closed': 'CLSD',
     'Done': 'DONE'
+  }, (v, k) => k.toLowerCase())
+
+  const STATUS_SP_EST = _.mapKeys({
+    'To Do': 1,
+    'Waiting': 1,
+    'Ready': 1,
+    'Rejected': 0.4,
+    'In Progress': 0.8,
+    'BE - In Progress': 0.8,
+    'FE - In Progress': 0.5,
+    'Code Review': 0.6,
+    'BE - Code Review': 0.6,
+    'FE - Code Review': 0.4,
+    'READY FOR DEPLOYMENT': 0.4,
+    'Ready for QA': 0.3,
+    'Test In Progress': 0.3,
+    'Ready to Merge': 0.1,
+    'Merged': 0.1,
+    'PO review': 0.1,
+    'Closed': 0,
+    'Done': 0
   }, (v, k) => k.toLowerCase())
 
   const COLOR_BY_STATUS = _.mapValues(_.mapKeys({

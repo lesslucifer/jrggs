@@ -3,6 +3,7 @@ import { Catch } from "../../utils/decors";
 import { JIRAService } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
+import { EstSPHandler } from "./est-sp";
 import { TicketViewHandler } from "./ticket-view";
 import { UserViewHandler } from "./user-view";
 import schedule from 'node-schedule'
@@ -10,6 +11,7 @@ import schedule from 'node-schedule'
 export function getJRGGSHandler(handlerName: string): JRGGSHandler {
     if (handlerName === 'TicketView') { return new TicketViewHandler() }
     if (handlerName === 'UserView') { return new UserViewHandler() }
+    if (handlerName === 'EstSP') { return new EstSPHandler() }
     return null    
 }
 
