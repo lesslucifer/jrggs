@@ -34,7 +34,7 @@ export class UserViewHandler extends JRGGSHandler {
         const rowsByTicketKey = _.chain(data.slice(DATA_ROW)).map((r, idx) => ({ k: r[1], v: idx + DATA_ROW })).groupBy('k').mapValues(rows => rows.map(r => r.v)).value()
         const ticketKeys = Object.keys(rowsByTicketKey) ?? []
 
-        const ticketMetas = await JiraIssueMetadata.find({ key: {$in: ticketKeys} }).toArray()
+        const ticketMetas = await JiraIssueMetadata.find({ key: { $in: ticketKeys } }).toArray()
         const metaByTicketKey = _.keyBy(ticketMetas, t => t.key)
         const updatedMeta: AnyBulkWriteOperation<IJiraIssueMetadata>[] = []
 
@@ -43,8 +43,8 @@ export class UserViewHandler extends JRGGSHandler {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
                     sheet.mkCell(issue.assignee),
-                    { ...sheet.mkCell(issue.key, { textFormat: { link: { uri: issue.uri } } }), note: issue.summaryWithSprint },
-                    sheet.mkCell(issue.type, { backgroundColor: issue.severityColor }),
+                    sheet.mkCell(issue.key, { textFormat: { link: { uri: issue.uri } } }),
+                    { ...sheet.mkCell(issue.type, { backgroundColor: issue.severityColor }), note: issue.summaryWithSprint },
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
                     ..._.range(20).map(i => {
@@ -68,25 +68,24 @@ export class UserViewHandler extends JRGGSHandler {
                     sheet.updateCell(r, STATUS_COL, issue.status, { backgroundColor: issue.statusColor })
                 }
 
-                if (metaByTicketKey[issue.key]?.summaryWithSprints !== issue.summaryWithSprint) {
-                    sheet.updateCell(r, ISSUE_KEY_COL, issue.key, { textFormat: { link: { uri: issue.uri } } })
-                    updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { summaryWithSprints: issue.summaryWithSprint } }, upsert: true } })
-                }
-
                 if (data[r][SP_COL] !== issue.storyPoint.toString()) {
                     sheet.updateCell(r, SP_COL, issue.storyPoint)
                 }
 
-                if (metaByTicketKey[issue.key]?.severity !== issue.severity) {
-                    sheet.updateCell(r, ISSUE_TYPE_COL, issue.type, { backgroundColor: issue.severityColor })
-                    updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { severity: issue.severity } }, upsert: true } })
+                if (metaByTicketKey[issue.key]?.severity !== issue.severity || metaByTicketKey[issue.key]?.summaryWithSprints !== issue.summaryWithSprint) {
+                    sheet.updateCellWithData(r, ISSUE_TYPE_COL, {
+                        ...sheet.mkCell(issue.type, { backgroundColor: issue.severityColor }),
+                        note: issue.summaryWithSprint
+                    })
+
+                    updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { severity: issue.severity, summaryWithSprints: issue.summaryWithSprint } }, upsert: true } })
                 }
 
                 if (rowIndex === r || col < DATE_COL_START) continue
                 sheet.updateCell(r, col, `→${issue.abbrevAsignee}`, { backgroundColor: issue.statusColor, textFormat: { foregroundColor: hexToRgb("#666666") } })
             }
         }
-        
+
         await sheet.batchUpdate()
         if (updatedMeta.length > 0) {
             await JiraIssueMetadata.bulkWrite(updatedMeta)
