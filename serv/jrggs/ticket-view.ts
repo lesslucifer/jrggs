@@ -13,6 +13,7 @@ export class TicketViewHandler extends JRGGSHandler {
     @Catch(err => console.log('TicketViewHandler err', err))
     async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
         const SUMMARY_COL = 1
+        const ISSUE_TYPE_COL = 2
         const STATUS_COL = 3
         const SP_COL = 4
         const DATE_ROW = 4
@@ -40,9 +41,9 @@ export class TicketViewHandler extends JRGGSHandler {
             if (!rowById.has(issue.key)) {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
-                    sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}browse/${issue.key}"; "${issue.key}")` }),
+                    sheet.mkCell(issue.key, { textFormat: { link: { uri: issue.uri } } }),
                     { ...sheet.mkCell(issue.summary), note: issue.sprints },
-                    sheet.mkCell(issue.type),
+                    sheet.mkCell(issue.type, { backgroundColor: issue.severityColor }),
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
                     ..._.range(20).map(i => {
@@ -65,6 +66,11 @@ export class TicketViewHandler extends JRGGSHandler {
                 if (metaByTicketKey[issue.key]?.sprints !== issue.sprints) {
                     sheet.updateCellWithData(rowIndex, SUMMARY_COL, { ...sheet.mkCell(issue.summary), note: issue.sprints })
                     updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { sprints: issue.sprints } }, upsert: true } })
+                }
+
+                if (metaByTicketKey[issue.key]?.severity !== issue.severity) {
+                    sheet.updateCell(rowIndex, ISSUE_TYPE_COL, issue.type, { backgroundColor: issue.severityColor })
+                    updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { severity: issue.severity } }, upsert: true } })
                 }
 
                 if (data[rowIndex][SP_COL] !== issue.storyPoint.toString()) {

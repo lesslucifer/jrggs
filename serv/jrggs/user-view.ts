@@ -1,5 +1,5 @@
 import moment from "moment";
-import { JIRAIssue } from "../jira";
+import { JIRAIssue, hexToRgb } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
@@ -13,6 +13,7 @@ export class UserViewHandler extends JRGGSHandler {
     @Catch(err => console.log(err))
     async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
         const ISSUE_KEY_COL = 1
+        const ISSUE_TYPE_COL = 2
         const STATUS_COL = 3
         const SP_COL = 4
         const DATE_ROW = 4
@@ -42,8 +43,8 @@ export class UserViewHandler extends JRGGSHandler {
                 rowById.set(issue.key, newRow++)
                 sheet.append([
                     sheet.mkCell(issue.assignee),
-                    { ...sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}browse/${issue.key}"; "${issue.key}")` }), note: issue.summaryWithSprint },
-                    sheet.mkCell(issue.type),
+                    { ...sheet.mkCell(issue.key, { textFormat: { link: { uri: issue.uri } } }), note: issue.summaryWithSprint },
+                    sheet.mkCell(issue.type, { backgroundColor: issue.severityColor }),
                     sheet.mkCell(issue.status, { backgroundColor: issue.statusColor }),
                     sheet.mkCell(issue.storyPoint),
                     ..._.range(20).map(i => {
@@ -68,7 +69,7 @@ export class UserViewHandler extends JRGGSHandler {
                 }
 
                 if (metaByTicketKey[issue.key]?.summaryWithSprints !== issue.summaryWithSprint) {
-                    sheet.updateCellWithData(r, ISSUE_KEY_COL, { ...sheet.mkCell({ formulaValue: `=HYPERLINK("${ENV.JIRA_HOST}browse/${issue.key}"; "${issue.key}")` }), note: issue.summaryWithSprint })
+                    sheet.updateCell(r, ISSUE_KEY_COL, issue.key, { textFormat: { link: { uri: issue.uri } } })
                     updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { summaryWithSprints: issue.summaryWithSprint } }, upsert: true } })
                 }
 
@@ -76,8 +77,13 @@ export class UserViewHandler extends JRGGSHandler {
                     sheet.updateCell(r, SP_COL, issue.storyPoint)
                 }
 
+                if (metaByTicketKey[issue.key]?.severity !== issue.severity) {
+                    sheet.updateCell(r, ISSUE_TYPE_COL, issue.type, { backgroundColor: issue.severityColor })
+                    updatedMeta.push({ updateOne: { filter: { key: issue.key }, update: { $set: { severity: issue.severity } }, upsert: true } })
+                }
+
                 if (rowIndex === r || col < DATE_COL_START) continue
-                sheet.updateCell(r, col, `→${issue.abbrevAsignee}`, { backgroundColor: issue.statusColor })
+                sheet.updateCell(r, col, `→${issue.abbrevAsignee}`, { backgroundColor: issue.statusColor, textFormat: { foregroundColor: hexToRgb("#666666") } })
             }
         }
         

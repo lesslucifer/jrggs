@@ -32,6 +32,10 @@ export class JIRAIssue {
         return this.issue.key
     }
 
+    get uri() {
+        return `${ENV.JIRA_HOST}browse/${this.key}`
+    }
+
     get summary(): string {
         return _.get(this.issue, 'fields.summary')
     }
@@ -87,6 +91,14 @@ export class JIRAIssue {
     get estSP() {
         return this.storyPoint * (STATUS_SP_EST[this.lowerCaseStatus] ?? 1)
     }
+
+    get severity() {
+        return _.get(this.issue, 'fields.priority.name') ?? 'S3-Moderate'
+    }
+
+    get severityColor() {
+        return SEVERITY_COLOR[this.severity.toLowerCase()] ?? hexToRgb('#ffffff')
+    }
 }
 
 const STATUS_ABBREV = _.mapKeys({
@@ -108,9 +120,9 @@ const STATUS_ABBREV = _.mapKeys({
     'PO review': 'POR',
     'Closed': 'CLSD',
     'Done': 'DONE'
-  }, (v, k) => k.toLowerCase())
+}, (v, k) => k.toLowerCase())
 
-  const STATUS_SP_EST = _.mapKeys({
+const STATUS_SP_EST = _.mapKeys({
     'To Do': 1,
     'Waiting': 1,
     'Ready': 1,
@@ -129,9 +141,9 @@ const STATUS_ABBREV = _.mapKeys({
     'PO review': 0.1,
     'Closed': 0,
     'Done': 0
-  }, (v, k) => k.toLowerCase())
+}, (v, k) => k.toLowerCase())
 
-  const COLOR_BY_STATUS = _.mapValues(_.mapKeys({
+const COLOR_BY_STATUS = _.mapValues(_.mapKeys({
     'To Do': '#DDDDDD',
     'Waiting': '#DDDDDD',
     'Ready': '#DDDDDD',
@@ -151,9 +163,9 @@ const STATUS_ABBREV = _.mapKeys({
     'Closed': '#0D9276',
     'Done': '#0D9276',
     'Default': '#FFBE98'
-  }, (v, k) => k.toLowerCase()), v => hexToRgb(v, 0))
+}, (v, k) => k.toLowerCase()), v => hexToRgb(v, 0))
 
-  const USER_ABBREV = _.mapKeys({
+const USER_ABBREV = _.mapKeys({
     'VU LUU': 'VU',
     'Myla Ross Enerio': 'MYLA',
     'Ariel Cuerdo': 'ARIEL',
@@ -179,14 +191,20 @@ const STATUS_ABBREV = _.mapKeys({
     'Shiena Nebiar': 'SHIENA',
     'Renz Joal A. Borais': 'RENZ',
     'Duong Hoang': 'RIN'
-  }, (v, k) => k.toLowerCase())
+}, (v, k) => k.toLowerCase())
 
-  function hexToRgb(hex: string, alpha = 1) {
+const SEVERITY_COLOR = _.mapValues(_.mapKeys({
+    'S1-Critical': '#ea9999',
+    'S2-Severe': '#f9cb9c',
+    'S3-Moderate': '#ffffff'
+}, (v, k) => k.toLowerCase()), v => hexToRgb(v, 0))
+
+export function hexToRgb(hex: string, alpha = 1) {
     var result = /^#?([a-fA-F\d]{2})([a-fA-F\d]{2})([a-fA-F\d]{2})$/i.exec(hex);
     return result ? {
-      red: parseInt(result[1], 16) / 255,
-      green: parseInt(result[2], 16) / 255,
-      blue: parseInt(result[3], 16) / 255,
-      alpha
+        red: parseInt(result[1], 16) / 255,
+        green: parseInt(result[2], 16) / 255,
+        blue: parseInt(result[3], 16) / 255,
+        alpha
     } : null;
-  }
+}

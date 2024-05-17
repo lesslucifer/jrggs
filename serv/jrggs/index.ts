@@ -27,18 +27,20 @@ export async function execute(sprintId: string, spreadsheetId: string, handlers:
     }
 }
 
-export async function runCurrentTask() {
+export async function runCurrentTasks() {
     const now = new Date()
     console.log('runCurrentTask at', now)
-    const task = await Task.findOne({ $and: [
+    const tasks = await Task.find({ $and: [
         { begin: { $lte: now } },
         { end: { $gt: now } }
-    ]}, { sort: { begin: -1 } })
-    if (!task) return
+    ]}, { sort: { begin: -1 } }).toArray()
+    if (!tasks.length) return
 
-    await execute(task.sprintId, task.spreadsheetId, task.handlers)
-    console.log('runCurrentTask', task._id, 'at', now)
+    for (const task of tasks) {
+        await execute(task.sprintId, task.spreadsheetId, task.handlers)
+        console.log('run task', task._id, 'at', now)
+    }
 }
 
-schedule.scheduleJob('0 15 10 * * *', () => runCurrentTask().catch((err) => console.error(err)));
-schedule.scheduleJob('0 15 14 * * *', () => runCurrentTask().catch((err) => console.error(err)));
+schedule.scheduleJob('0 15 10 * * *', () => runCurrentTasks().catch((err) => console.error(err)));
+schedule.scheduleJob('0 15 14 * * *', () => runCurrentTasks().catch((err) => console.error(err)));

@@ -41,6 +41,7 @@
         sprint: '',
         sprintId: '',
         spreadsheetId: '',
+        handlers: ['TicketView', 'UserView'],
         begin: moment().format('YYYY-MM-DD'),
         end: moment().format('YYYY-MM-DD'),
     }
@@ -71,7 +72,7 @@
                     },
                     allowOutsideClick: () => !Swal.isLoading(),
                     input: 'text',
-                    inputValue: 'TicketView,UserView,EstSP'
+                    inputValue: (task.handlers && task.handlers.join(",")) || ""
                 });
                 if (result.isConfirmed) {
                     await Swal.fire({
@@ -121,7 +122,7 @@
             const resp = await axios.post(`${HOST}/tasks`, newTask)
             newTask._id = resp.data._id
             setTasks(tasks => [...tasks, newTask])
-            setAddingTask({...DEFAULT_TASK})
+            setAddingTask({ ...DEFAULT_TASK })
         }
 
         const reloadTasks = async () => {
@@ -144,6 +145,7 @@
                     <th>Sprint</th>
                     <th>Sprint ID</th>
                     <th>SpreasheetID</th>
+                    <th>Jobs</th>
                     <th>Begin</th>
                     <th>End</th>
                     <th>Action</th>
@@ -166,6 +168,7 @@
             <td>{task.sprint}</td>
             <td>{task.sprintId}</td>
             <td><a href={`https://docs.google.com/spreadsheets/d/${task.spreadsheetId}/edit`} target="_blank">{task.spreadsheetId}</a></td>
+            <td>{task.handlers.join(",")}</td>
             <td>{moment(task.begin).format('YYYY-MM-DD')}</td>
             <td>{moment(task.end).format('YYYY-MM-DD')}</td>
             <td>
@@ -189,6 +192,13 @@
             <td><input value={task.sprint} onChange={e => setTask(t => ({ ...t, sprint: e.target.value }))} /></td>
             <td><input value={task.sprintId} onChange={e => setTask(t => ({ ...t, sprintId: e.target.value }))} /></td>
             <td><input value={task.spreadsheetId} onChange={e => setTask(t => ({ ...t, spreadsheetId: e.target.value }))} style={{ width: '100%' }} /></td>
+            <td>
+                <input
+                    value={task.handlers && task.handlers.join(',')}
+                    onChange={e => setTask(t => ({ ...t, handlers: (e.target.value && e.target.value.split(",")) || [] }))}
+                    style={{ width: '100%' }}
+                />
+            </td>
             <td><input type="date" value={moment(task.begin).format('YYYY-MM-DD')} onChange={e => setTask(t => ({ ...t, begin: e.target.value }))} style={{ width: '100%' }} /></td>
             <td><input type="date" value={moment(task.end).format('YYYY-MM-DD')} onChange={e => setTask(t => ({ ...t, end: e.target.value }))} style={{ width: '100%' }} /></td>
             <td>
