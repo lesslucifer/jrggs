@@ -2,11 +2,11 @@ import { Body, DELETE, ExpressRouter, GET, POST, PUT, Params } from "express-rou
 import moment from "moment";
 import { ObjectId } from "mongodb";
 import HC from "../glob/hc";
-import { Task } from "../models";
-import { ITask } from "../models/task";
+import Task, { ITask } from "../models/task";
 import { ValidBody } from "../utils/decors";
 import { AppLogicError } from "../utils/hera";
 import { execute } from "../serv/jrggs";
+import { JIRAService } from "../serv/jira";
 
 class TasksRouter extends ExpressRouter {
     document = {
@@ -102,6 +102,12 @@ class TasksRouter extends ExpressRouter {
     async executeTask(@Body() task: Partial<ITask>) {
         await execute(task.sprintId, task.spreadsheetId, task.handlers)
         return HC.SUCCESS
+    }
+
+    @GET({path: "/active-sprints"})
+    async getActiveSprints() {
+        const activeSprints = await JIRAService.getActiveSprints("WFORD")
+        return activeSprints
     }
 }
 

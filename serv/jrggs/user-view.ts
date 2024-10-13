@@ -1,13 +1,11 @@
+import _ from "lodash";
 import moment from "moment";
+import { AnyBulkWriteOperation } from "mongodb";
+import JiraIssueMetadata, { IJiraIssueMetadata } from "../../models/issue-metadata";
+import { Catch } from "../../utils/decors";
 import { JIRAIssue, hexToRgb } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
-import { Catch } from "../../utils/decors";
-import _, { Dictionary } from "lodash";
-import ENV from "../../glob/env";
-import { JiraIssueMetadata } from "../../models";
-import { AnyBulkWriteOperation } from "mongodb";
-import { IJiraIssueMetadata } from "../../models/issue-metadata";
 
 export class UserViewHandler extends JRGGSHandler {
     @Catch(err => console.log(err))

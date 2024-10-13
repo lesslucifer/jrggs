@@ -10,14 +10,12 @@ import winston = require('winston/lib/winston/config');
 import terminate from './serv/terminate';
 import createSesssionObject from './serv/sess';
 import _ from 'lodash';
-import { initModels } from './models';
 
 export class Program {
     static server: express.Express;
 
     public static async setup() {
         await CONN.configureConnections(ENV);
-        await initModels(CONN.MONGO)
 
         // AuthServ.MODEL = UserServ
 

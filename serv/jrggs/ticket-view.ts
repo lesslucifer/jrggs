@@ -4,10 +4,8 @@ import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
 import _ from "lodash";
-import ENV from "../../glob/env";
-import { JiraIssueMetadata } from "../../models";
 import { AnyBulkWriteOperation } from "mongodb";
-import { IJiraIssueMetadata } from "../../models/issue-metadata";
+import JiraIssueMetadata, { IJiraIssueMetadata } from "../../models/issue-metadata";
 
 export class TicketViewHandler extends JRGGSHandler {
     @Catch(err => console.log('TicketViewHandler err', err))

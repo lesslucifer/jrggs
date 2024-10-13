@@ -1,3 +1,4 @@
+import { MongoModel } from '../utils/mongo-model';
 import { ENV_CONFIG } from './env';
 import * as mongodb from 'mongodb';
 
@@ -18,6 +19,7 @@ export class AppConnections {
         });
         await mongoConn.connect()
         this.mongo = mongoConn.db(config.MONGO_DB)
+        await MongoModel.setDatabase(this.mongo)
     }
 }
 

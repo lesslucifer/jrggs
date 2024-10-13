@@ -3,25 +3,76 @@ import ENV from '../glob/env';
 import _ from 'lodash';
 
 export class JIRAService {
-    static async getIssues(sprint: string, startAt = 0) {
-        const jql = Object.entries({
-            'jql': `sprint = ${sprint}`,
-            'maxResults': 100,
-            'startAt': startAt
-        }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
-        const url = `${ENV.JIRA_HOST}/rest/api/latest/search?${jql}`
-        const resp = await axios.get(url, {
-            headers: {
-                'Authorization': ENV.JIRA_TOKEN
-            }
-        })
+    static async queryJiraIssues(jql: string) {
+        const issues: JIRAIssue[] = [];
+        let totalIssues = 0;
+        let startAt = 0;
 
-        const issues: JIRAIssue[] = (resp.data?.issues ?? []).map((iss: any) => new JIRAIssue(iss))
-        if (issues.length && startAt + issues.length < resp.data.total) {
-            const moreIssues = await this.getIssues(sprint, startAt + issues.length)
-            issues.push(...moreIssues)
+        while (true) {
+            const query = Object.entries({
+                'jql': jql,
+                'maxResults': 100,
+                'startAt': startAt
+            }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+            const url = `${ENV.JIRA_HOST}/rest/api/latest/search?${query}`;
+            const resp = await axios.get(url, {
+                headers: {
+                    'Authorization': ENV.JIRA_TOKEN
+                }
+            });
+
+            const fetchedIssues: JIRAIssue[] = (resp.data?.issues ?? []).map((iss: any) => new JIRAIssue(iss));
+            issues.push(...fetchedIssues);
+            totalIssues = resp.data.total;
+
+            if (fetchedIssues.length === 0 || startAt + fetchedIssues.length >= totalIssues) {
+                break;
+            }
+
+            startAt += fetchedIssues.length;
         }
-        return issues
+
+        return issues;
+    }
+
+    static getSprintIssues(sprint: string, lastUpdateTime: number = 0) {
+        return this.queryJiraIssues(`sprint = ${sprint} AND updated > ${lastUpdateTime}`)
+    }
+
+    static getIssues(lastUpdateTime: number) {
+        return this.queryJiraIssues(`updated > ${lastUpdateTime}`)
+    }
+
+    static async getActiveSprints(projectKey: string): Promise<IJiraSprintInfo[]> {
+        const resp = await axios.get(`${ENV.JIRA_HOST}/rest/agile/1.0/board`, {
+            params: {
+                projectKeyOrId: projectKey,
+                type: 'scrum'
+            },
+            headers: {
+                'Authorization': ENV.JIRA_TOKEN,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (resp.data.values && resp.data.values.length > 0) {
+            const boardId = resp.data.values[0].id;
+            const sprintsResp = await axios.get(`${ENV.JIRA_HOST}/rest/agile/1.0/board/${boardId}/sprint`, {
+                params: {
+                    state: 'active'
+                },
+                headers: {
+                    'Authorization': ENV.JIRA_TOKEN,
+                    'Accept': 'application/json'
+                }
+            });
+            return sprintsResp.data.values?.map((sprint: any) => ({
+                ...sprint,
+                projectKey: projectKey,
+            })) ?? [];
+        }
+        
+        return [];
     }
 }
 
@@ -207,4 +258,17 @@ export function hexToRgb(hex: string, alpha = 1) {
         blue: parseInt(result[3], 16) / 255,
         alpha
     } : null;
+}
+
+export interface IJiraSprintInfo {
+    id: number;
+    projectKey: string;
+    self: string;
+    state: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    createdDate: string;
+    originBoardId?: number;
+    goal?: string;
 }

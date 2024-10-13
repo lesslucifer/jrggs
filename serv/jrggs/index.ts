@@ -1,5 +1,4 @@
-import { Task } from "../../models";
-import { Catch } from "../../utils/decors";
+import Task from "../../models/task";
 import { JIRAService } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
@@ -16,7 +15,7 @@ export function getJRGGSHandler(handlerName: string): JRGGSHandler {
 }
 
 export async function execute(sprintId: string, spreadsheetId: string, handlers: string[]) {
-    const issues = await JIRAService.getIssues(sprintId)
+    const issues = await JIRAService.getSprintIssues(sprintId, 0)
     const sheets = new GGSpreadsheets(spreadsheetId)
     
     for (const h of handlers) {
