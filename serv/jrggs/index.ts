@@ -6,6 +6,8 @@ import { EstSPHandler } from "./est-sp";
 import { TicketViewHandler } from "./ticket-view";
 import { UserViewHandler } from "./user-view";
 import schedule from 'node-schedule'
+import './active-sprint-sync'
+import './issue-process'
 
 export function getJRGGSHandler(handlerName: string): JRGGSHandler {
     if (handlerName === 'TicketView') { return new TicketViewHandler() }

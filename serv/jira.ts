@@ -39,8 +39,8 @@ export class JIRAService {
         return this.queryJiraIssues(`sprint = ${sprint} AND updated > ${lastUpdateTime}`)
     }
 
-    static getIssues(lastUpdateTime: number) {
-        return this.queryJiraIssues(`updated > ${lastUpdateTime}`)
+    static getProjectIssues(projectKey: string, lastUpdateTime: number) {
+        return this.queryJiraIssues(`project = ${projectKey} AND updated > ${lastUpdateTime}`)
     }
 
     static async getActiveSprints(projectKey: string): Promise<IJiraSprintInfo[]> {
@@ -73,6 +73,39 @@ export class JIRAService {
         }
         
         return [];
+    }
+
+    static async getIssueChangelog(issueKey: string, startAt: number = 0) {
+        const url = `${ENV.JIRA_HOST}/rest/api/latest/issue/${issueKey}/changelog`;
+        const MAX_RESULTS = 100;
+        let allChangelogs: any[] = [];
+        let currentStartAt = startAt;
+        
+        while (true) {
+            const resp = await axios.get(url, {
+                params: {
+                    startAt: currentStartAt,
+                    maxResults: MAX_RESULTS
+                },
+                headers: {
+                    'Authorization': ENV.JIRA_TOKEN
+                }
+            });
+            
+            const fetchedChangelogs = resp.data.values || [];
+            if (fetchedChangelogs?.length > 0) {
+                allChangelogs.push(...fetchedChangelogs);
+            }
+            
+            // Check if we've fetched all changelogs
+            if (fetchedChangelogs.length < MAX_RESULTS || !resp.data.isLast === false) {
+                break;
+            }
+            
+            currentStartAt += fetchedChangelogs.length;
+        }
+        
+        return allChangelogs;
     }
 }
 
