@@ -2,9 +2,9 @@ import _ from "lodash";
 import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
-import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "../../models/jira-issue";
+import JiraIssue, { IJiraIssue, IJiraIssueMetrics, JiraIssueSyncStatus } from "../../models/jira-issue";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
-import { JIRAService } from "../jira";
+import { JiraIssueData, JIRAService } from "../jira";
 
 export class IssueProcessorService {
     private static Lock = new AsyncLockExt()
@@ -114,11 +114,83 @@ export class IssueProcessorService {
             })
 
             if (invalidRejections.length > 0) {
+                iss.overrides.invalidRejections.push(...invalidRejections)
                 update.$push = { ...update.$push, 'overrides.invalidRejections': { $each: invalidRejections } }
             }
         }
 
+        const metrics = await this.computeIssueMetrics(iss)
+        if (!_.isEmpty(metrics)) {
+            update.$set = { ...update.$set, metrics }
+        }
+
         return update
+    }
+
+    private static async computeIssueMetrics(iss: IJiraIssue): Promise<IJiraIssueMetrics> {
+        return {
+            storyPoints: this.computeStoryPoints(iss),
+            nRejections: this.computeNRejections(iss),
+            nDefects: await this.computeNDefects(iss)
+        }
+    }
+
+    private static computeStoryPoints(iss: IJiraIssue): Record<string, number> {
+        if (iss.overrides.storyPoints) {
+            return iss.overrides.storyPoints
+        }
+        
+        const devCounter = _.countBy(iss.changelog.filter(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review')), log => log.author.accountId)
+        const sortedDevs = _.sortBy(Object.keys(devCounter), (uid) => -devCounter[uid])
+
+        const issueData = new JiraIssueData(iss.data)
+        const sp = issueData.storyPoint
+
+        return sortedDevs.reduce((acc, uid, idx) => {
+            acc[uid] = Math.floor(sp / sortedDevs.length) + (idx < sp % sortedDevs.length ? 1 : 0)
+            return acc
+        }, {} as Record<string, number>)
+    }
+
+    private static computeNRejections(iss: IJiraIssue): Record<string, number> {
+        const rejections: Record<string, number> = {};
+        let lastDev: string | null = null;
+
+        for (const log of iss.changelog) {
+            const statusChange = log.items?.find(item => item.field === 'status');
+            if (statusChange) {
+                if (statusChange.toString === 'Code Review') {
+                    lastDev = log.author.accountId;
+                } else if (statusChange.toString === 'Rejected' && lastDev) {
+                    rejections[lastDev] = (rejections[lastDev] || 0) + 1;
+                    lastDev = null;
+                }
+            }
+        }
+
+        for (const invalidRejection of iss.overrides.invalidRejections) {
+            if (rejections[invalidRejection.uid]) {
+                rejections[invalidRejection.uid]--;
+            }
+        }
+
+        return Object.fromEntries(
+            Object.entries(rejections).filter(([_, value]) => value > 0)
+        );
+    }
+    
+    private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, number>> {
+        const subIssues = await JiraIssue.find({ 'data.fields.parent.key': iss.key }).toArray()
+        const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))
+        const nDefects: Record<string, number> = {}
+        for (const defect of defects) {
+            if (defect.comments.some(comment => comment.body.toLowerCase().includes('[invalid defect]'))) continue
+            const devId = defect.changelog.find(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review'))?.author.accountId ?? ''
+            if (devId) {
+                nDefects[devId] = (nDefects[devId] || 0) + 1
+            }
+        }
+        return nDefects
     }
 }
 

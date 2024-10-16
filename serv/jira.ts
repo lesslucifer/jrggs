@@ -191,6 +191,10 @@ export class JiraIssueData {
         return COLOR_BY_STATUS[this.lowerCaseStatus] ?? COLOR_BY_STATUS.default
     }
 
+    get assigneeId(): string {
+        return _.get(this.data, 'fields.assignee.accountId') ?? ''
+    }
+
     get assignee(): string {
         return _.get(this.data, 'fields.assignee.displayName') ?? ''
     }

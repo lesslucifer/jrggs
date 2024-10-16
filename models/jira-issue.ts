@@ -10,6 +10,7 @@ export enum JiraIssueSyncStatus {
 export interface IJiraIssueChangelogRecord {
     id: string;
     author: {
+        accountId: string;
         displayName: string;
         avatarUrl: string;
     };
@@ -45,6 +46,16 @@ export interface IJiraIssueComment {
     body: string;
 }
 
+export interface IJiraIssueOverrides {
+    invalidRejections: {
+        uid: string;
+        created: number;
+        text: string;
+    }[];
+    storyPoints: {
+        [uid: string]: number;
+    }
+}
 export interface IJiraIssue extends IMongoDocument {
     key: string;
     lastSyncAt: number;
@@ -58,13 +69,7 @@ export interface IJiraIssue extends IMongoDocument {
     completedAt?: number;
     metrics: IJiraIssueMetrics;
 
-    overrides: {
-        invalidRejections: {
-            uid: string;
-            created: number;
-            text: string;
-        }[];
-    };
+    overrides: IJiraIssueOverrides;
 }
 
 const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
@@ -72,7 +77,7 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'key', index: { key: 1 }, opts: { unique: true } },
         { name: 'syncStatus-1', index: { syncStatus: 1, _id: -1 } },
         { name: 'completedAt-1', index: { completedAt: -1 } },
-        { name: 'fields.parent.key-hashed', index: { 'fields.parent.key': 'hashed' } },
+        { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
     ]
 })
 

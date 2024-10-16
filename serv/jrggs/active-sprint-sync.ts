@@ -34,7 +34,8 @@ export class SyncIssues {
                             nDefects: {}
                         },
                         overrides: {
-                            invalidRejections: []
+                            invalidRejections: [],
+                            storyPoints: {}
                         },
                         changelog: [],
                         comments: []
