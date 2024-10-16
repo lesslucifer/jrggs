@@ -1,10 +1,12 @@
 import axios from 'axios';
 import ENV from '../glob/env';
 import _ from 'lodash';
+import { IJiraIssueChangelogRecord } from '../models/jira-issue';
+import { IJiraIssueComment } from '../models/jira-issue';
 
 export class JIRAService {
     static async queryJiraIssues(jql: string) {
-        const issues: JIRAIssue[] = [];
+        const issues: JiraIssueData[] = [];
         let totalIssues = 0;
         let startAt = 0;
 
@@ -21,7 +23,7 @@ export class JIRAService {
                 }
             });
 
-            const fetchedIssues: JIRAIssue[] = (resp.data?.issues ?? []).map((iss: any) => new JIRAIssue(iss));
+            const fetchedIssues: JiraIssueData[] = (resp.data?.issues ?? []).map((iss: any) => new JiraIssueData(iss));
             issues.push(...fetchedIssues);
             totalIssues = resp.data.total;
 
@@ -75,7 +77,7 @@ export class JIRAService {
         return [];
     }
 
-    static async getIssueChangelog(issueKey: string, startAt: number = 0) {
+    static async getIssueChangelog(issueKey: string, startAt: number = 0): Promise<IJiraIssueChangelogRecord[]> {
         const url = `${ENV.JIRA_HOST}/rest/api/latest/issue/${issueKey}/changelog`;
         const MAX_RESULTS = 100;
         let allChangelogs: any[] = [];
@@ -107,13 +109,46 @@ export class JIRAService {
         
         return allChangelogs;
     }
+
+    static async getIssueComments(issueKey: string, startAt: number = 0): Promise<IJiraIssueComment[]> {
+        const url = `${ENV.JIRA_HOST}/rest/api/latest/issue/${issueKey}/comment`;
+        const MAX_RESULTS = 100;
+        let allComments: any[] = [];
+        let currentStartAt = startAt;
+        
+        while (true) {
+            const resp = await axios.get(url, {
+                params: {
+                    startAt: currentStartAt,
+                    maxResults: MAX_RESULTS
+                },
+                headers: {
+                    'Authorization': ENV.JIRA_TOKEN
+                }
+            });
+            
+            const fetchedComments = resp.data.comments || [];
+            if (fetchedComments?.length > 0) {
+                allComments.push(...fetchedComments);
+            }
+            
+            // Check if we've fetched all comments
+            if (fetchedComments.length < MAX_RESULTS || !resp.data.isLast === false) {
+                break;
+            }
+            
+            currentStartAt += fetchedComments.length;
+        }
+        
+        return allComments;
+    }
 }
 
-export class JIRAIssue {
-    constructor(public issue: any) { }
+export class JiraIssueData {
+    constructor(public data: any) { }
 
     get key(): string {
-        return this.issue.key
+        return this.data.key
     }
 
     get uri() {
@@ -121,19 +156,19 @@ export class JIRAIssue {
     }
 
     get summary(): string {
-        return _.get(this.issue, 'fields.summary')
+        return _.get(this.data, 'fields.summary')
     }
 
     get type(): string {
-        return _.get(this.issue, 'fields.issuetype.name')
+        return _.get(this.data, 'fields.issuetype.name')
     }
 
     get storyPoint(): number {
-        return _.get(this.issue, 'fields.customfield_10033') ?? 0
+        return _.get(this.data, 'fields.customfield_10033') ?? 0
     }
 
     get sprints(): string {
-        return _.chain(_.get(this.issue, 'fields.customfield_10580', [])).sortBy(sp => sp.id ?? 0).map(sp => sp.name ?? 'Unknown sprint').join('\n').value()
+        return _.chain(_.get(this.data, 'fields.customfield_10580', [])).sortBy(sp => sp.id ?? 0).map(sp => sp.name ?? 'Unknown sprint').join('\n').value()
     }
 
     get summaryWithSprint(): string {
@@ -141,7 +176,7 @@ export class JIRAIssue {
     }
 
     get status(): string {
-        return _.get(this.issue, 'fields.status.name')
+        return _.get(this.data, 'fields.status.name')
     }
 
     get lowerCaseStatus() {
@@ -157,7 +192,7 @@ export class JIRAIssue {
     }
 
     get assignee(): string {
-        return _.get(this.issue, 'fields.assignee.displayName') ?? ''
+        return _.get(this.data, 'fields.assignee.displayName') ?? ''
     }
 
     get lowerCaseAssignee() {
@@ -177,7 +212,7 @@ export class JIRAIssue {
     }
 
     get severity() {
-        return _.get(this.issue, 'fields.priority.name') ?? 'S3-Moderate'
+        return _.get(this.data, 'fields.priority.name') ?? 'S3-Moderate'
     }
 
     get severityColor() {

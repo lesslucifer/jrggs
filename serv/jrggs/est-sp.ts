@@ -1,11 +1,11 @@
 import { Catch } from "../../utils/decors";
-import { JIRAIssue } from "../jira";
+import { JiraIssueData } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 
 export class EstSPHandler extends JRGGSHandler {
     @Catch(err => console.log('Est SP err', err))
-    async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
+    async process(issues: JiraIssueData[], sheets: GGSpreadsheets): Promise<void> {
         const STATUS_COL = 3
         const SP_COL = 4
         const DATA_ROW = 6

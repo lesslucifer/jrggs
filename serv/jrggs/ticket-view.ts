@@ -1,5 +1,5 @@
 import moment from "moment";
-import { JIRAIssue } from "../jira";
+import { JiraIssueData } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 import { Catch } from "../../utils/decors";
@@ -9,7 +9,7 @@ import JiraIssueMetadata, { IJiraIssueMetadata } from "../../models/issue-metada
 
 export class TicketViewHandler extends JRGGSHandler {
     @Catch(err => console.log('TicketViewHandler err', err))
-    async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
+    async process(issues: JiraIssueData[], sheets: GGSpreadsheets): Promise<void> {
         const SUMMARY_COL = 1
         const ISSUE_TYPE_COL = 2
         const STATUS_COL = 3

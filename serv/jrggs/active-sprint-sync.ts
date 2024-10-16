@@ -1,12 +1,12 @@
+import { AnyBulkWriteOperation } from "mongodb";
+import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import AppConfig from "../../models/app-config";
-import JiraIssueSyncRequest, { JiraIssueSyncRequestStatus } from "../../models/jira-issue-sync-request";
+import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "../../models/jira-issue";
+import { Locked } from "../../utils/async-lock-ext";
 import { Catch } from "../../utils/decors";
 import { JIRAService } from "../jira";
-import schedule from 'node-schedule'
 import { IssueProcessorService } from "./issue-process";
-import moment from "moment";
-import { Locked } from "../../utils/async-lock-ext";
 
 export class SyncIssues {
     @Locked(() => 'SyncIssues')
@@ -17,25 +17,37 @@ export class SyncIssues {
         console.log('SyncIssues lastUpdateTime', lastUpdateTime)
         const issues = await JIRAService.getProjectIssues(HC.JIRA_PROJECT_KEY, lastUpdateTime)
         if (issues.length === 0) return
-        const bulkOps = issues.map(issue => ({
+
+        const bulkOps: AnyBulkWriteOperation<IJiraIssue>[] = issues.map(issue => ({
             updateOne: {
                 filter: { key: issue.key },
                 update: {
                     $set: {
-                        key: issue.key,
-                        data: issue.issue,
+                        data: issue.data,
+                        syncStatus: JiraIssueSyncStatus.PENDING,
+                        lastSyncAt: Date.now()
+                    },
+                    $setOnInsert: {
+                        metrics: {
+                            storyPoints: {},
+                            nRejections: {},
+                            nDefects: {}
+                        },
+                        overrides: {
+                            invalidRejections: []
+                        },
                         changelog: [],
-                        status: JiraIssueSyncRequestStatus.PENDING
+                        comments: []
                     }
                 },
                 upsert: true
             }
         }));
 
-        await JiraIssueSyncRequest.bulkWrite(bulkOps);
-        await AppConfig.updateOne({ key: 'SyncIssues_lastUpdateTime' }, { $set: { value: moment().valueOf() } }, { upsert: true })
+        await JiraIssue.bulkWrite(bulkOps);
+        await AppConfig.updateOne({ key: 'SyncIssues_lastUpdateTime' }, { $set: { value: Date.now() } }, { upsert: true })
 
-        IssueProcessorService.checkToProcess().catch()
+        IssueProcessorService.checkToProcess()
     }
 }
 

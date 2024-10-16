@@ -1,6 +1,6 @@
-import { JIRAIssue } from "../jira";
+import { JiraIssueData } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 
 export class JRGGSHandler {
-    async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {}
+    async process(issues: JiraIssueData[], sheets: GGSpreadsheets): Promise<void> {}
 }

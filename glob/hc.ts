@@ -12,7 +12,7 @@ export class HC {
 
     static readonly SYNC_ISSUES_DEFAULT_LAST_UPDATE_TIME = moment([2024, 1, 1]).startOf('year').valueOf()
 
-    static readonly JIRA_ISSUE_SYNC_REQUEST_PROCESS_LIMIT = 10
+    static readonly JIRA_ISSUE_PROCESS_LIMIT = 10
     static readonly JIRA_PROJECT_KEY = 'WFORD'
 }
 

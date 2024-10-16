@@ -3,13 +3,13 @@ import moment from "moment";
 import { AnyBulkWriteOperation } from "mongodb";
 import JiraIssueMetadata, { IJiraIssueMetadata } from "../../models/issue-metadata";
 import { Catch } from "../../utils/decors";
-import { JIRAIssue, hexToRgb } from "../jira";
+import { JiraIssueData, hexToRgb } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";
 
 export class UserViewHandler extends JRGGSHandler {
     @Catch(err => console.log(err))
-    async process(issues: JIRAIssue[], sheets: GGSpreadsheets): Promise<void> {
+    async process(issues: JiraIssueData[], sheets: GGSpreadsheets): Promise<void> {
         const ISSUE_KEY_COL = 1
         const ISSUE_TYPE_COL = 2
         const STATUS_COL = 3
