@@ -2,6 +2,7 @@ import { ajvs } from 'ajvs-ts';
 import * as express from 'express';
 import * as glob from 'glob';
 import _ from 'lodash';
+import * as mongodb from 'mongodb';
 
 export type BoxedPromise<T> = T | Promise<T>;
 
@@ -53,6 +54,7 @@ export class BizLogicError extends Error {
 global['BizLogicError'] = BizLogicError
 
 export class Hera {
+    static readonly INVALID_OBJECTID = mongodb.ObjectId.createFromTime(0)
     TimeTable = new Map<string, number>();
     ajv = ajvs();
 
@@ -313,6 +315,16 @@ export class Hera {
         if (val === null || val === undefined) return false;
         if (val === '') return false;
         return true
+    }
+    
+    mObjId(id: string, throws = true) {
+        try {
+            return new mongodb.ObjectId(id);
+        }
+        catch (err) {
+            if (throws) throw err
+            return Hera.INVALID_OBJECTID
+        }
     }
 }
 

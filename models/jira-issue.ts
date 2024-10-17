@@ -7,6 +7,11 @@ export enum JiraIssueSyncStatus {
     FAILED = 'FAILED',
 }
 
+export interface IJiraIssueSprint {
+    id: number;
+    name: string;
+}
+
 export interface IJiraIssueChangelogRecord {
     id: string;
     author: {
@@ -32,7 +37,7 @@ export interface IJiraIssueMetrics {
         [uid: string]: number;
     };
     nDefects: {
-        [uid: string]: number;
+        [uid: string]: string[];
     };
 }
 
@@ -67,6 +72,7 @@ export interface IJiraIssue extends IMongoDocument {
     comments: IJiraIssueComment[];
 
     completedAt?: number;
+    completedSprint?: IJiraIssueSprint;
     metrics: IJiraIssueMetrics;
 
     overrides: IJiraIssueOverrides;
@@ -78,6 +84,7 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'syncStatus-1', index: { syncStatus: 1, _id: -1 } },
         { name: 'completedAt-1', index: { completedAt: -1 } },
         { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
+        { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } },
     ]
 })
 

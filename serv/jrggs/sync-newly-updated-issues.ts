@@ -8,7 +8,7 @@ import { Catch } from "../../utils/decors";
 import { JIRAService } from "../jira";
 import { IssueProcessorService } from "./issue-process";
 
-export class SyncIssues {
+export class SyncNewlyUpdatedIssues {
     @Locked(() => 'SyncIssues')
     @Catch(err => console.log(err))
     static async process(): Promise<void> {
@@ -52,4 +52,4 @@ export class SyncIssues {
     }
 }
 
-schedule.scheduleJob('0 * * * * *', () => SyncIssues.process().catch((err) => console.error(err)));
+schedule.scheduleJob('0 * * * * *', () => SyncNewlyUpdatedIssues.process().catch((err) => console.error(err)));

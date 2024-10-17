@@ -18,7 +18,25 @@ const ajvEnvDbConfig = {
     'MONGO_OPTIONS': {}
 }
 
-export interface ENV_CONFIG extends ENV_DB_CONFIG {
+export interface ENV_AUTH {
+    AUTH_SECRECT_KEY: string;
+    AUTH_ACCESS_TOKEN_EXPIRES: number;
+    AUTH_REFRESH_TOKEN_EXPIRES: number;
+}
+
+const ajvEnvAuthConfig = {
+    '+@AUTH_SECRECT_KEY': 'string',
+    '+@AUTH_ACCESS_TOKEN_EXPIRES': 'number',
+    '+@AUTH_REFRESH_TOKEN_EXPIRES': 'number',
+}
+
+const authEnvDefault = {
+    AUTH_SECRECT_KEY: 'TFp4LoZVYsLULXO62xXZHeQmToFHKk8i',
+    AUTH_ACCESS_TOKEN_EXPIRES: 7200,
+    AUTH_REFRESH_TOKEN_EXPIRES: 1209600
+}
+
+export interface ENV_CONFIG extends ENV_DB_CONFIG, ENV_AUTH {
     NAME: string;
     HTTP_PORT: number;
     LOG_LEVEL: string;
@@ -36,16 +54,22 @@ const ajvEnvConfig = ajv.compile({
     '+@JIRA_HOST': 'string',
     '+@JIRA_TOKEN': 'string',
     '@LOG_LEVEL': 'string',
-    ...ajvEnvDbConfig
+    ...ajvEnvDbConfig,
+    ...ajvEnvAuthConfig
 })
 
 const ENV_DEFAULT: Partial<ENV_CONFIG> = {
     HTTP_PORT: 3000,
-    LOG_LEVEL: 'debug'
+    LOG_LEVEL: 'debug',
+    ...authEnvDefault
 }
 
 const envCustomParser = {
-    HTTP_PORT: hera.parseInt
+    HTTP_PORT: hera.parseInt,
+    AUTH_ACCESS_TOKEN_EXPIRES: hera.parseInt,
+    AUTH_REFRESH_TOKEN_EXPIRES: hera.parseInt,
+    MONGO_OPTIONS: JSON.parse,
+    MONGO_LOG_OPTIONS: JSON.parse
 }
 
 function loadConfig(): ENV_CONFIG {

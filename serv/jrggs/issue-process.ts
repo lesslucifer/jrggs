@@ -96,11 +96,11 @@ export class IssueProcessorService {
             })
 
             if (finishLog) {
-                update.$set = { ...update.$set, completedAt: new Date(finishLog.created).getTime() }
+                update.$set = { ...update.$set, completedAt: new Date(finishLog.created).getTime(), completedSprint: new JiraIssueData(iss.data).lastSprint }
             }
         }
 
-        const comments = await JIRAService.getIssueComments(iss.key)
+        const comments = await JIRAService.getIssueComments(iss.key, iss.comments.length)
         if (comments.length > 0) {
             iss.comments.push(...comments)
             update.$push = { ...update.$push, comments: { $each: comments } }
@@ -179,16 +179,17 @@ export class IssueProcessorService {
         );
     }
     
-    private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, number>> {
+    private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, string[]>> {
         const subIssues = await JiraIssue.find({ 'data.fields.parent.key': iss.key }).toArray()
         const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))
-        const nDefects: Record<string, number> = {}
+        const nDefects: Record<string, string[]> = {}
         for (const defect of defects) {
             if (defect.comments.some(comment => comment.body.toLowerCase().includes('[invalid defect]'))) continue
             const devId = defect.changelog.find(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review'))?.author.accountId ?? ''
-            if (devId) {
-                nDefects[devId] = (nDefects[devId] || 0) + 1
+            if (!(devId in nDefects)) {
+                nDefects[devId] = []
             }
+            nDefects[devId].push(defect.key)
         }
         return nDefects
     }

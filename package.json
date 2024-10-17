@@ -48,7 +48,8 @@
     "typescript": "^5.4.5",
     "uuid": "^8.3.0",
     "vm2": "^3.9.2",
-    "winston": "^3.3.3"
+    "winston": "^3.3.3",
+    "nanoid": "^3.3.4"
   },
   "devDependencies": {
     "@types/async-lock": "^1.4.2",

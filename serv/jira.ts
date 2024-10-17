@@ -171,6 +171,10 @@ export class JiraIssueData {
         return _.chain(_.get(this.data, 'fields.customfield_10580', [])).sortBy(sp => sp.id ?? 0).map(sp => sp.name ?? 'Unknown sprint').join('\n').value()
     }
 
+    get lastSprint(): { name: string, id: number } {
+        return _.chain(_.get(this.data, 'fields.customfield_10580', [])).sortBy(sp => sp.id ?? 0).last().value()
+    }
+
     get summaryWithSprint(): string {
         return [this.summary, this.sprints].join('\n')
     }

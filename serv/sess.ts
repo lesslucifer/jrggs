@@ -1,12 +1,10 @@
 import * as express from 'express';
 import * as uuid from 'uuid';
-
-export class AuthUserSession {
-    constructor(public id: string, public roles: string[]) {}
-}
+import { IUser } from '../models/user';
 
 interface IReqSession {
-    user?: AuthUserSession;
+    authRequired?: boolean;
+    user?: IUser;
     system?: string;
 }
 
