@@ -1,4 +1,4 @@
-import Task from "../../models/task";
+import Task from "../../models/task.model";
 import { JIRAService } from "../jira";
 import { GGSpreadsheets } from "../sheets";
 import { JRGGSHandler } from "./define";

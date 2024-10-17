@@ -10,7 +10,7 @@ export class GQLJiraObject extends GQLModel<IJiraObject, GQLJiraObject> {
     @GQLField()
     type: string;
 
-    @GQLField()
+    @GQLField({ autoSelect: true })
     @GQLIdenticalMapping()
     fields: {
         code?: string;

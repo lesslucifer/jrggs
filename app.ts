@@ -34,7 +34,7 @@ export class Program {
         ExpressRouter.ResponseHandler = this.expressRouterResponse.bind(this)
         ExpressRouter.ErrorHandler = this.expressRouterError.bind(this)
         server.all('*', (req, resp) => {
-            if (req.session.user || req.session.system) return this.expressRouterError(new AppLogicError(`Permission denied!`, 403), req, resp);
+            if (req.session.authRequired) return this.expressRouterError(new AppLogicError(`Permission denied!`, 403), req, resp);
             return this.expressRouterError(new AppLogicError(`Cannot ${req.method} ${req.url}! API not found`, 404), req, resp)
         });
     }

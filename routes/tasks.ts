@@ -2,7 +2,7 @@ import { Body, DELETE, ExpressRouter, GET, POST, PUT, Params } from "express-rou
 import moment from "moment";
 import { ObjectId } from "mongodb";
 import HC from "../glob/hc";
-import Task, { ITask } from "../models/task";
+import Task, { ITask } from "../models/task.model";
 import { ValidBody } from "../utils/decors";
 import { AppLogicError } from "../utils/hera";
 import { execute } from "../serv/jrggs";

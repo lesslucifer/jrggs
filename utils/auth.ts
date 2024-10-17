@@ -94,6 +94,14 @@ export class JWTAuth implements IAuthenticator {
     }
 
     async getUser(accessToken: string): Promise<IAuthUser> {
+        const tokenData: any = jwt.verify(accessToken, this.secrect);
+        if (tokenData.type == 'ACCESS') {
+            return {
+                id: tokenData.id,
+                scope: tokenData.scope
+            }
+        }
+
         throw new Error(`Invalid access token`);
     }
 }

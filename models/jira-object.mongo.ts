@@ -17,7 +17,7 @@ export interface IJiraObject extends IMongoDocument {
 
 const JiraObject = MongoModel.createCollection<IJiraObject>('jira_object', {
     indexes: [
-        { name: 'id', index: { id: 'hashed' }, opts: { unique: true } },
+        { name: 'id', index: { id: 1 }, opts: { unique: true } },
         { name: 'type', index: { type: 1 } },
         { name: 'fields.displayName', index: { 'fields.displayName': 1 } },
         { name: 'text', index: { 'fields.displayName': 'text', 'fields.code': 'text', 'fields.abbrev': 'text' }, opts: { default_language: 'none' } },

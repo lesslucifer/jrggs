@@ -109,7 +109,7 @@ export class UserRouter extends ExpressRouter {
         return await this.addUserAsAdmin(user, body)
     }
 
-    @AuthServ.authSystem(USER_ROLE.ADMIN)
+    @AuthServ.authSysAdmin()
     @ValidBody(UserRouter.addUserBodySchema)
     @POST({ path: '/' })
     async addUserSystem(@Body() body: IAddUpdateUserBody) {

@@ -10,7 +10,7 @@ import moment from 'moment';
 import User, { IUser } from '../models/user.model';
 import AuthServ from '../serv/auth';
 import { ValidBody, Caller } from '../utils/decors';
-import { OTP_TYPE } from '../models/otp';
+import { OTP_TYPE } from '../models/otp.model';
 import { UserServ } from '../serv/user';
 
 export class AuthRouter extends ExpressRouter {

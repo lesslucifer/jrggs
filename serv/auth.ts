@@ -7,9 +7,8 @@ import hera, { AppLogicError } from '../utils/hera';
 import { ExpressRouter, addMiddlewareDecor } from 'express-router-ts';
 import ENV from '../glob/env';
 import { IUser } from '../models/user.model';
-
-const SystemKeys = [
-]
+import _ from 'lodash';
+import { UserServ } from './user';
 
 export interface IAuthUserModel {
     getUser(uid: string): Promise<IUser>;
@@ -17,21 +16,21 @@ export interface IAuthUserModel {
 
 export class AuthServ {
     static readonly authenticator: IAuthenticator = new JWTAuth(ENV.AUTH_SECRECT_KEY, ENV.AUTH_ACCESS_TOKEN_EXPIRES, ENV.AUTH_REFRESH_TOKEN_EXPIRES);
-    static MODEL: IAuthUserModel;
 
-    static authSystem(...allowedSystems: string[]) {
+    static authSysAdmin() {
         return addMiddlewareDecor(async (req: express.Request) => {
             req.session.authRequired = true;
             if (!req.session.system) {
-                const apiKey = req.header('apikey') || req.query.apikey || (req.body && req.body.apikey);
+                const apiKey = req.header('x-api-key') || req.query.apikey || (req.body && req.body.apikey);
                 if (hera.isEmpty(apiKey)) throw ExpressRouter.NEXT;
                 
-                const system = SystemKeys.find(sk => sk.apikey == apiKey);
-                req.session.system = system.system;
+                if (ENV.SYS_ADMIN_KEY && ENV.SYS_ADMIN_KEY == apiKey) {
+                    req.session.system = 'ENV';
+                    return
+                }
+                
+                throw ExpressRouter.NEXT
             }
-
-            const system = req.session.system;
-            if (!system || !allowedSystems.find(s => s == system)) throw ExpressRouter.NEXT;
         })
     }
 
@@ -39,7 +38,7 @@ export class AuthServ {
         return addMiddlewareDecor(async (req: express.Request) => {
             req.session.authRequired = true;
             if (!req.session.user) {
-                const accessToken = req.header('Authorization');
+                const accessToken = this.getTokenFromRequest(req);
                 if (hera.isEmpty(accessToken)) throw ExpressRouter.NEXT; // new AppLogicError(`Unauthorized, Invalid access token`, 403);
             
                 let authUser: IAuthUser = null;
@@ -50,7 +49,7 @@ export class AuthServ {
                     throw new AppLogicError(`Unauthorized! ${err}`, 401);
                 }
     
-                const user = await this.MODEL.getUser(authUser.id as string);
+                const user = await UserServ.getUser(authUser.id as string);
                 if (hera.isEmpty(user) || user.isBlocked) throw new AppLogicError('Unauthorized! User is invalid or deactive or deleted', 401);
     
                 this.authenticator.renewToken(accessToken);
@@ -69,6 +68,18 @@ export class AuthServ {
                 if (!matchedRoles.length) throw ExpressRouter.NEXT;
             }
         });
+    }
+
+    static getTokenFromRequest(req: express.Request): string {
+        const BearerPrefixes = ['Bearer ', 'bearer '];
+
+        const token = req.header('Authorization') ?? null;
+        if (!token) return token;
+
+        const prefix = BearerPrefixes.find((pre) => token.startsWith(pre));
+        if (prefix) return token.substring(prefix.length);
+
+        return token;
     }
 }
 

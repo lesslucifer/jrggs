@@ -10,8 +10,8 @@ import ERR from '../glob/err';
 import HC from '../glob/hc';
 import User, { IUser, IUserCompactInfo } from '../models/user.model';
 import AsyncLockExt, { Locked } from '../utils/async-lock-ext';
-import UserAuth from '../models/user-auth';
-import OTP, { OTP_TYPE } from '../models/otp';
+import UserAuth from '../models/user-auth.model';
+import OTP, { OTP_TYPE } from '../models/otp.model';
 
 export class UserServ {
     static registerLock = new AsyncLockExt()

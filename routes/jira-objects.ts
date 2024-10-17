@@ -1,16 +1,14 @@
 import { Body, DELETE, ExpressRouter, GET, Params, POST, PUT, Query } from "express-router-ts";
 import { GQLGlobal, GQLU } from "gql-ts";
+import _ from "lodash";
+import { USER_ROLE } from "../glob/cf";
+import AppConfig from "../models/app-config";
+import JiraIssue from "../models/jira-issue.mongo";
 import { GQLJiraObject } from "../models/jira-object.gql";
 import JiraObject, { IJiraObject } from "../models/jira-object.mongo";
+import AuthServ from "../serv/auth";
 import { DocGQLResponse, ValidBody } from "../utils/decors";
 import { AppLogicError } from "../utils/hera";
-import { USER_ROLE } from "../glob/cf";
-import AuthServ from "../serv/auth";
-import AppConfig from "../models/app-config";
-import { query } from "express";
-import _, { result } from "lodash";
-import { AnyBulkWriteOperation } from "mongodb";
-import JiraIssue, { IJiraIssue, IJiraUserInfo } from "../models/jira-issue.mongo";
 
 class JiraObjectRouter extends ExpressRouter {
     document = {
@@ -37,7 +35,8 @@ class JiraObjectRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @POST({ path: "/sync" })
     async syncJiraObjects() {
-        const lastSyncTimeConfig = await AppConfig.findOne({ key: 'syncJiraObjects_lastSyncTime' })
+        const lastSyncTimeKey = 'syncJiraObjects_lastSyncTime_2'
+        const lastSyncTimeConfig = await AppConfig.findOne({ key: lastSyncTimeKey })
         const lastSyncTime = lastSyncTimeConfig?.value as number || 0
         const issues = await JiraIssue.find({ lastSyncAt: { $gte: lastSyncTime } }).toArray()
         if (issues.length === 0) return
@@ -79,6 +78,21 @@ class JiraObjectRouter extends ExpressRouter {
                             }
                         })
                     }
+
+                    if (item.field === 'Sprint') {
+                        const sprints = _.zip([...item.from.split(', '), ...item.to.split(', ')], [...item.fromString.split(', '), ...item.toString.split(', ')])
+                        sprints.forEach(([id, name]) => {
+                            if (!id || !name) return
+                            jiraObjects.set(id, {
+                                id,
+                                type: 'sprint',
+                                fields: {
+                                    ...jiraObjects.get(id)?.fields,
+                                    displayName: name,
+                                }
+                            })
+                        })
+                    }
                 })
             })
 
@@ -96,8 +110,17 @@ class JiraObjectRouter extends ExpressRouter {
                 }
             })
         })
+
+        const bulkOps = Array.from(jiraObjects.values()).map(obj => ({
+            updateOne: {
+                filter: { id: obj.id },
+                update: { $set: obj },
+                upsert: true
+            }
+        }))
+        await JiraObject.bulkWrite(bulkOps)
         
-        await AppConfig.updateOne({ key: 'syncJiraObjects_lastSyncTime' }, { $set: { value: Date.now() } }, { upsert: true })
+        await AppConfig.updateOne({ key: lastSyncTimeKey }, { $set: { value: Date.now() } }, { upsert: true })
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
