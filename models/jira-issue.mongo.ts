@@ -7,6 +7,12 @@ export enum JiraIssueSyncStatus {
     FAILED = 'FAILED',
 }
 
+export interface IJiraUserInfo {
+    accountId?: string;
+    displayName?: string;
+    avatarUrls?: Record<string, string>;
+}
+
 export interface IJiraIssueSprint {
     id: number;
     name: string;
@@ -14,11 +20,7 @@ export interface IJiraIssueSprint {
 
 export interface IJiraIssueChangelogRecord {
     id: string;
-    author: {
-        accountId: string;
-        displayName: string;
-        avatarUrl: string;
-    };
+    author: IJiraUserInfo;
     created: string;
     items?: {
         field?: string;
@@ -42,11 +44,7 @@ export interface IJiraIssueMetrics {
 }
 
 export interface IJiraIssueComment {
-    author: {
-        accountId: string;
-        displayName: string;
-        avatarUrl: string;
-    };
+    author: IJiraUserInfo;
     created: string;
     body: string;
 }

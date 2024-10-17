@@ -1,8 +1,8 @@
 import axios from 'axios';
 import ENV from '../glob/env';
 import _ from 'lodash';
-import { IJiraIssueChangelogRecord } from '../models/jira-issue';
-import { IJiraIssueComment } from '../models/jira-issue';
+import { IJiraIssueChangelogRecord } from '../models/jira-issue.mongo';
+import { IJiraIssueComment } from '../models/jira-issue.mongo';
 
 export class JIRAService {
     static async queryJiraIssues(jql: string) {

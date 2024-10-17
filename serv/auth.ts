@@ -6,7 +6,7 @@ import hera, { AppLogicError } from '../utils/hera';
 
 import { ExpressRouter, addMiddlewareDecor } from 'express-router-ts';
 import ENV from '../glob/env';
-import { IUser } from '../models/user';
+import { IUser } from '../models/user.model';
 
 const SystemKeys = [
 ]

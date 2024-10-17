@@ -2,7 +2,7 @@ import { AnyBulkWriteOperation } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import AppConfig from "../../models/app-config";
-import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "../../models/jira-issue";
+import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import { Locked } from "../../utils/async-lock-ext";
 import { Catch } from "../../utils/decors";
 import { JIRAService } from "../jira";
@@ -14,7 +14,6 @@ export class SyncNewlyUpdatedIssues {
     static async process(): Promise<void> {
         const lastUpdateTimeConfig = await AppConfig.findOne({ key: 'SyncIssues_lastUpdateTime' })
         const lastUpdateTime = lastUpdateTimeConfig?.value as number || HC.SYNC_ISSUES_DEFAULT_LAST_UPDATE_TIME
-        console.log('SyncIssues lastUpdateTime', lastUpdateTime)
         const issues = await JIRAService.getProjectIssues(HC.JIRA_PROJECT_KEY, lastUpdateTime)
         if (issues.length === 0) return
 

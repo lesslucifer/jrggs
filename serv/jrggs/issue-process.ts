@@ -2,7 +2,7 @@ import _ from "lodash";
 import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
-import JiraIssue, { IJiraIssue, IJiraIssueMetrics, JiraIssueSyncStatus } from "../../models/jira-issue";
+import JiraIssue, { IJiraIssue, IJiraIssueMetrics, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 

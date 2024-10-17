@@ -1,6 +1,9 @@
 import { ajvs } from 'ajvs-ts';
 import * as express from 'express';
 import * as glob from 'glob';
+import { GQLU } from 'gql-ts';
+import { GQLGlobal } from 'gql-ts';
+import { GQLQuery } from 'gql-ts';
 import _ from 'lodash';
 import * as mongodb from 'mongodb';
 
@@ -325,6 +328,40 @@ export class Hera {
             if (throws) throw err
             return Hera.INVALID_OBJECTID
         }
+    }
+
+    gqlMongoQueryPagination<T>(gqlModel: Function, gqlQuery: GQLQuery, mgCollection: mongodb.Collection<T>, mgQuery: any, opts?: IGQLMGQueryPaginationOpts): Promise<Partial<T>[]> {
+        const gql = GQLGlobal;
+        const spec = GQLGlobal.get(gqlModel);
+        _.keys(gqlQuery.pagination.from)
+            .map(k => spec.getKey(k))
+            .filter(ks => ks != null && !_.isEmpty(gqlQuery.pagination.from[ks.key]))
+            .forEach(ks => {
+                const val = gqlQuery.pagination.from[ks.key]
+                const qVal = mongodb.ObjectId.isValid(val) ? new mongodb.ObjectId(val) : GQLU.gqlParse(gql, ks, val)
+                _.set(mgQuery, `${ks.key}.$gt`, qVal)
+            })
+
+        _.keys(gqlQuery.pagination.to)
+            .map(k => spec.getKey(k))
+            .filter(ks => ks != null && !_.isEmpty(gqlQuery.pagination.to[ks.key]))
+            .forEach(ks => {
+                const val = gqlQuery.pagination.to[ks.key]
+                const qVal = mongodb.ObjectId.isValid(val) ? new mongodb.ObjectId(val) : GQLU.gqlParse(gql, ks, val)
+                _.set(mgQuery, `${ks.key}.$lt`, qVal)
+            })
+
+        const cursor = mgCollection.find(mgQuery).project<Partial<T>>(gqlQuery.QueryFields);
+
+        const sort = gqlQuery.sort;
+        if (!hera.isEmpty(sort)) {
+            cursor.sort(this.arrToObj(sort.fields, f => f.field, f => f.OrderNumber));
+        }
+
+        const defLimit = (opts && opts.defaultLimit) || 100;
+        const maxLimit = (opts && opts.maxLimit) || 1000;
+        cursor.limit(Math.min(hera.parseInt(gqlQuery.pagination.limit, undefined, defLimit), maxLimit));
+        return cursor.toArray()
     }
 }
 

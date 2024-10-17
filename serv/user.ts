@@ -8,7 +8,7 @@ import { customAlphabet, nanoid } from 'nanoid';
 import { USER_ROLE } from '../glob/cf';
 import ERR from '../glob/err';
 import HC from '../glob/hc';
-import User, { IUser, IUserCompactInfo } from '../models/user';
+import User, { IUser, IUserCompactInfo } from '../models/user.model';
 import AsyncLockExt, { Locked } from '../utils/async-lock-ext';
 import UserAuth from '../models/user-auth';
 import OTP, { OTP_TYPE } from '../models/otp';
@@ -73,7 +73,7 @@ export class UserServ {
     }
 
     @Locked(([info]) => info.email, UserServ.registerLock)
-    static async registerNewUser(info: IRegUserInfo, refUser?: IUser) {
+    static async registerNewUser(info: IRegUserInfo) {
         if (info.email && !hera.isValidEmailAddress(info.email)) throw new AppLogicError('Invalid email format')
 
         const duplicatedUser = await User.findOne({ email: info.email }, { projection: ['_id'] })

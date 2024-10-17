@@ -7,7 +7,7 @@ import hera, { AppLogicError } from '../utils/hera';
 
 import { Body, ExpressRouter, GET, POST, PUT, Params, Req } from 'express-router-ts';
 import moment from 'moment';
-import User, { IUser } from '../models/user';
+import User, { IUser } from '../models/user.model';
 import AuthServ from '../serv/auth';
 import { ValidBody, Caller } from '../utils/decors';
 import { OTP_TYPE } from '../models/otp';
@@ -112,13 +112,12 @@ export class AuthRouter extends ExpressRouter {
     })
     @POST({ path: '/reg' })
     async reg(@Req() req: express.Request, @Body() body: IRegUserBody) {
-        const refUser = body.ref_code && await User.findOne({ phone: body.ref_code })
         const newUserId = await UserServ.registerNewUser({
             name: body.name,
             email: body.email,
             password: body.password,
             roles: []
-        }, refUser)
+        })
 
         return {
             _id: newUserId
@@ -197,11 +196,8 @@ export interface ICheckVersionBody {
 
 export interface IRegUserBody {
     name: string
-    birth_day: number
-    phone: string
     email: string
     password: string
-    ref_code?: string
 }
 
 export default new AuthRouter();
