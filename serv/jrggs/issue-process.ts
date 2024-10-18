@@ -136,18 +136,27 @@ export class IssueProcessorService {
     }
 
     private static computeStoryPoints(iss: IJiraIssue): Record<string, number> {
-        if (iss.overrides.storyPoints) {
+        if (!_.isEmpty(iss.overrides.storyPoints)) {
             return iss.overrides.storyPoints
         }
-        
-        const devCounter = _.countBy(iss.changelog.filter(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review')), log => log.author.accountId)
-        const sortedDevs = _.sortBy(Object.keys(devCounter), (uid) => -devCounter[uid])
 
         const issueData = new JiraIssueData(iss.data)
         const sp = issueData.storyPoint
+        if (sp === 0) {
+            return {}
+        }
+
+        const devCounter = _.countBy(iss.changelog.filter(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review')), log => log.author.accountId)
+        const sortedDevs = _.sortBy(Object.keys(devCounter), (uid) => -devCounter[uid])
+        if (sortedDevs.length === 0) {
+            sortedDevs.push('unknown')
+        }
 
         return sortedDevs.reduce((acc, uid, idx) => {
-            acc[uid] = Math.floor(sp / sortedDevs.length) + (idx < sp % sortedDevs.length ? 1 : 0)
+            const devSp = Math.floor(sp / sortedDevs.length) + (idx < sp % sortedDevs.length ? 1 : 0)
+            if (devSp > 0) {
+                acc[uid] = devSp
+            }
             return acc
         }, {} as Record<string, number>)
     }

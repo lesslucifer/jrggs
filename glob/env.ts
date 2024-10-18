@@ -29,14 +29,13 @@ const ajvEnvAuthConfig = {
     '+@AUTH_SECRECT_KEY': 'string',
     '+@AUTH_ACCESS_TOKEN_EXPIRES': 'number',
     '+@AUTH_REFRESH_TOKEN_EXPIRES': 'number',
-    '+@SYS_ADMIN_KEY': 'string'
+    '@SYS_ADMIN_KEY': 'string',
 }
 
 const authEnvDefault = {
     AUTH_SECRECT_KEY: 'TFp4LoZVYsLULXO62xXZHeQmToFHKk8i',
     AUTH_ACCESS_TOKEN_EXPIRES: 7200,
-    AUTH_REFRESH_TOKEN_EXPIRES: 1209600,
-    SYS_ADMIN_KEY: 'e4vWpexmmXq41sznNtkugj1xOXH9mG9r'
+    AUTH_REFRESH_TOKEN_EXPIRES: 1209600
 }
 
 export interface ENV_CONFIG extends ENV_DB_CONFIG, ENV_AUTH {

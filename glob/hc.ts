@@ -14,7 +14,7 @@ export class HC {
 
     static readonly OTP_EXPIRATION_SECS = 5 * 60
 
-    static readonly JIRA_ISSUE_PROCESS_LIMIT = 10
+    static readonly JIRA_ISSUE_PROCESS_LIMIT = 50
     static readonly JIRA_PROJECT_KEY = 'WFORD'
 }
 
