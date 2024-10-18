@@ -79,7 +79,9 @@ class JiraIssueRouter extends ExpressRouter {
     }
 
     private getIssuesQueryFromHttpQuery(query: any) {
-        const queryObj: Filter<IJiraIssue> = {}
+        const queryObj: Filter<IJiraIssue> = {
+            'data.fields.issuetype.name': { $ne: 'Sub-task' }
+        }
         if (query.startDate && query.endDate) {
             const startDate = moment(query.startDate).startOf('day')
             const endDate = moment(query.endDate).endOf('day')
