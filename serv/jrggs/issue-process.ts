@@ -2,7 +2,7 @@ import _ from "lodash";
 import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
-import JiraIssue, { IJiraIssue, IJiraIssueMetrics, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import JiraIssue, { IJiraIssue, IJiraIssueMetrics, IJiraIssueUserMetrics, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 
@@ -65,7 +65,8 @@ export class IssueProcessorService {
                     $set: {
                         ...update.$set,
                         syncStatus: JiraIssueSyncStatus.SUCCESS,
-                        lastSyncAt: Date.now()
+                        lastSyncAt: Date.now(),
+                        seqSyncAt: null
                     }
                 }
             }
@@ -127,12 +128,23 @@ export class IssueProcessorService {
         return update
     }
 
-    private static async computeIssueMetrics(iss: IJiraIssue): Promise<IJiraIssueMetrics> {
-        return {
-            storyPoints: this.computeStoryPoints(iss),
-            nRejections: this.computeNRejections(iss),
-            nDefects: await this.computeNDefects(iss)
-        }
+    private static async computeIssueMetrics(iss: IJiraIssue): Promise<IJiraIssueUserMetrics> {
+        const storyPoints = this.computeStoryPoints(iss)
+        const nRejections = this.computeNRejections(iss)
+        const nCodeReviews = this.computeNCodeReviews(iss)
+        const defects = await this.computeNDefects(iss)
+
+        const uids = new Set([...Object.keys(storyPoints), ...Object.keys(nRejections), ...Object.keys(nCodeReviews), ...Object.keys(defects)])
+
+        return Array.from(uids).reduce((metrics, uid) => {
+            metrics[uid] = {
+                storyPoints: storyPoints[uid] ?? 0,
+                nRejections: nRejections[uid] ?? 0,
+                nCodeReviews: nCodeReviews[uid] ?? 0,
+                defects: defects[uid] ?? [],
+            }
+            return metrics
+        }, {} as IJiraIssueUserMetrics)
     }
 
     private static computeStoryPoints(iss: IJiraIssue): Record<string, number> {
@@ -187,7 +199,23 @@ export class IssueProcessorService {
             Object.entries(rejections).filter(([_, value]) => value > 0)
         );
     }
-    
+
+    private static computeNCodeReviews(iss: IJiraIssue): Record<string, number> {
+        const codeReviews: Record<string, number> = {};
+
+        for (const log of iss.changelog) {
+            const statusChange = log.items?.find(item => item.field === 'status');
+            if (statusChange) {
+                if (statusChange.toString === 'Code Review') {
+                    codeReviews[log.author.accountId] = (codeReviews[log.author.accountId] || 0) + 1
+                }
+            }
+        }
+        return Object.fromEntries(
+            Object.entries(codeReviews).filter(([_, value]) => value > 0)
+        );
+    }
+
     private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, string[]>> {
         const subIssues = await JiraIssue.find({ 'data.fields.parent.key': iss.key }).toArray()
         const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))

@@ -10,12 +10,15 @@ export interface ENV_DB_CONFIG {
     MONGO_CONNECTION: string;
     MONGO_DB: string;
     MONGO_OPTIONS: any;
+
+    SEQUELIZE_CONNECTION: string;
 }
 
 const ajvEnvDbConfig = {
     '+@MONGO_CONNECTION': 'string',
     '+@MONGO_DB': 'string',
-    'MONGO_OPTIONS': {}
+    'MONGO_OPTIONS': {},
+    '+@SEQUELIZE_CONNECTION': 'string',
 }
 
 export interface ENV_AUTH {

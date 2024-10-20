@@ -27,17 +27,14 @@ export class SyncNewlyUpdatedIssues {
                         lastSyncAt: Date.now()
                     },
                     $setOnInsert: {
-                        metrics: {
-                            storyPoints: {},
-                            nRejections: {},
-                            nDefects: {}
-                        },
+                        metrics: {},
                         overrides: {
                             invalidRejections: [],
                             storyPoints: {}
                         },
                         changelog: [],
-                        comments: []
+                        comments: [],
+                        seqSyncAt: null
                     }
                 },
                 upsert: true

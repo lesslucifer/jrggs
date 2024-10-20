@@ -31,17 +31,14 @@ export interface IJiraIssueChangelogRecord {
     }[];
 }
 
-export interface IJiraIssueMetrics {
-    storyPoints: {
-        [uid: string]: number;
-    },
-    nRejections: {
-        [uid: string]: number;
-    };
-    nDefects: {
-        [uid: string]: string[];
-    };
+export type IJiraIssueMetrics = {
+    storyPoints: number;
+    nRejections: number;
+    defects: string[];
+    nCodeReviews: number;
 }
+
+export type IJiraIssueUserMetrics = Record<string, IJiraIssueMetrics>
 
 export interface IJiraIssueComment {
     author: IJiraUserInfo;
@@ -71,9 +68,11 @@ export interface IJiraIssue extends IMongoDocument {
 
     completedAt?: number;
     completedSprint?: IJiraIssueSprint;
-    metrics: IJiraIssueMetrics;
+    metrics: IJiraIssueUserMetrics;
 
     overrides: IJiraIssueOverrides;
+    
+    seqSyncAt?: number;
 }
 
 const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
@@ -83,6 +82,7 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'completedAt-1', index: { completedAt: -1 } },
         { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
         { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } },
+        { name: 'seqSyncAt-1', index: { seqSyncAt: -1, _id: 1 } },
     ]
 })
 
