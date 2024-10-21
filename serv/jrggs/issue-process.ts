@@ -57,7 +57,7 @@ export class IssueProcessorService {
         }
     }
 
-    static async processIssue(iss: IJiraIssue, overrides: IJiraIssueOverrides): Promise<UpdateOneModel<IJiraIssue>> {
+    static async processIssue(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<UpdateOneModel<IJiraIssue>> {
         try {
             const update = await this.updateIssue(iss, overrides)
 
@@ -86,7 +86,7 @@ export class IssueProcessorService {
         }
     }
 
-    static async updateIssue(iss: IJiraIssue, overrides: IJiraIssueOverrides): Promise<UpdateFilter<IJiraIssue>> {
+    static async updateIssue(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<UpdateFilter<IJiraIssue>> {
         const update: UpdateFilter<IJiraIssue> = {}
 
         const changelog = await JIRAService.getIssueChangelog(iss.key, iss.changelog.length)
@@ -139,20 +139,27 @@ export class IssueProcessorService {
 
             const isExcluded = comments.some(comment => comment.body.startsWith('[EXCLUDED]'))
             if (isExcluded) {
+                iss.extraData.excluded = true
                 update.$set = { ...update.$set, 'extraData.excluded': true }
             }
         }
 
-        const metrics = await this.computeIssueMetrics(iss, overrides)
+        if (!_.isEmpty(overrides?.storyPoints)) {
+            iss.extraData.storyPoints = overrides.storyPoints
+            update.$set = { ...update.$set, 'extraData.storyPoints': overrides.storyPoints }
+        }
+
+        const metrics = await this.computeIssueMetrics(iss)
         if (!_.isEmpty(metrics)) {
+            iss.metrics = metrics
             update.$set = { ...update.$set, metrics }
         }
 
         return update
     }
 
-    private static async computeIssueMetrics(iss: IJiraIssue, overrides: IJiraIssueOverrides): Promise<IJiraIssueUserMetrics> {
-        const storyPoints = this.computeStoryPoints(iss, overrides)
+    private static async computeIssueMetrics(iss: IJiraIssue): Promise<IJiraIssueUserMetrics> {
+        const storyPoints = this.computeStoryPoints(iss)
         const nRejections = this.computeRejections(iss)
         const nCodeReviews = this.computeNCodeReviews(iss)
         const defects = await this.computeNDefects(iss)
@@ -170,9 +177,9 @@ export class IssueProcessorService {
         }, {} as IJiraIssueUserMetrics)
     }
 
-    private static computeStoryPoints(iss: IJiraIssue, overrides: IJiraIssueOverrides): Record<string, number> {
-        if (!_.isEmpty(overrides.storyPoints)) {
-            return overrides.storyPoints
+    private static computeStoryPoints(iss: IJiraIssue): Record<string, number> {
+        if (!_.isEmpty(iss.extraData.storyPoints)) {
+            return iss.extraData.storyPoints
         }
 
         const issueData = new JiraIssueData(iss.data)

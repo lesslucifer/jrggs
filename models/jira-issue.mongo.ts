@@ -74,6 +74,7 @@ export interface IJiraIssue extends IMongoDocument {
             created: number;
             text: string;
         }[];
+        storyPoints: Record<string, number>;
         excluded: boolean;
     }
 }

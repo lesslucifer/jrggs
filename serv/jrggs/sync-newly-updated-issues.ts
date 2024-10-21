@@ -41,6 +41,12 @@ export class SyncNewlyUpdatedIssues {
                         },
                         changelog: [],
                         comments: [],
+                        extraData: {
+                            invalidRejections: [],
+                            invalidCodeReviews: [],
+                            storyPoints: {},
+                            excluded: false
+                        },
                         seqSyncAt: null
                     }
                 },
