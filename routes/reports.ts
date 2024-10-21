@@ -40,6 +40,57 @@ class JiraIssueRouter extends ExpressRouter {
         })
     }
 
+    @GET({ path: '/devReviews'})
+    async getDevReviewsReport(@Query() query: any) {
+        const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
+        const issues = await JiraIssue.find(queryObj).toArray()
+
+        const result = issues.reduce((acc, issue) => {
+            const sprintId = issue.completedSprint?.id?.toString() || ''
+            
+            Object.entries(issue.metrics).forEach(([userId, metrics]) => {
+                const key = userId
+                if (!acc[key]) {
+                    acc[key] = {
+                        user: userId,
+                        metrics: {
+                            issues: [],
+                            storyPoints: 0,
+                            nRejections: 0,
+                            defects: new Set(),
+                            nCodeReviews: 0
+                        }
+                    }
+                }
+                
+                acc[key].metrics.issues.push(issue.key)
+                acc[key].metrics.storyPoints += metrics.storyPoints
+                acc[key].metrics.nRejections += metrics.nRejections
+                metrics.defects.forEach(defect => acc[key].metrics.defects.add(defect))
+                acc[key].metrics.nCodeReviews += metrics.nCodeReviews
+            })
+
+            return acc
+        }, {} as Record<string, {
+            user: string,
+            metrics: {
+                issues: string[],
+                storyPoints: number,
+                nRejections: number,
+                defects: Set<string>,
+                nCodeReviews: number
+            }
+        }>)
+
+        return _.orderBy(Object.values(result).map(item => ({
+            ...item,
+            metrics: {
+                ...item.metrics,
+                defects: Array.from(item.metrics.defects)
+            }
+        })), ['user'])
+    }
+
     private getIssuesQueryFromHttpQuery(query: any, allowedQuery: string[]) {
         const queryObj: Filter<IJiraIssue> = {
             'data.fields.issuetype.name': { $ne: 'Sub-task' }
