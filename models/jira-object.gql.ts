@@ -1,6 +1,6 @@
 import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLModel, GQLObject, GQLQuery, GQLResolver, GQLU } from "gql-ts";
 import hera from "../utils/hera";
-import JiraObject, { IJiraObject } from "./jira-object.seq";
+import JiraObject, { IJiraObject } from "./jira-object.mongo";
 
 @GQLObject("jira-object")
 export class GQLJiraObject extends GQLModel<IJiraObject, GQLJiraObject> {

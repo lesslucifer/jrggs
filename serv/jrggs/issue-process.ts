@@ -2,7 +2,8 @@ import _ from "lodash";
 import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
-import JiraIssue, { IJiraIssue, IJiraIssueMetrics, IJiraIssueUserMetrics, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
+import JiraIssue, { IJiraIssue, IJiraIssueUserMetrics, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 
@@ -22,7 +23,9 @@ export class IssueProcessorService {
 
         try {
             this.isProcessing = true
-            const itemUpdates = await Promise.all(issues.map(iss => this.processIssue(iss)))
+            const overrides = await JiraIssueOverrides.find({ key: { $in: issues.map(iss => iss.key) } }).toArray()
+            const overridesMap = _.keyBy(overrides, 'key')
+            const itemUpdates = await Promise.all(issues.map(iss => this.processIssue(iss, overridesMap[iss.key])))
 
             const bulkOps = itemUpdates.map(update => ({
                 updateOne: update
@@ -54,9 +57,9 @@ export class IssueProcessorService {
         }
     }
 
-    static async processIssue(iss: IJiraIssue): Promise<UpdateOneModel<IJiraIssue>> {
+    static async processIssue(iss: IJiraIssue, overrides: IJiraIssueOverrides): Promise<UpdateOneModel<IJiraIssue>> {
         try {
-            const update = await this.updateIssue(iss)
+            const update = await this.updateIssue(iss, overrides)
 
             return {
                 filter: { _id: iss._id },
@@ -83,7 +86,7 @@ export class IssueProcessorService {
         }
     }
 
-    static async updateIssue(iss: IJiraIssue): Promise<UpdateFilter<IJiraIssue>> {
+    static async updateIssue(iss: IJiraIssue, overrides: IJiraIssueOverrides): Promise<UpdateFilter<IJiraIssue>> {
         const update: UpdateFilter<IJiraIssue> = {}
 
         const changelog = await JIRAService.getIssueChangelog(iss.key, iss.changelog.length)
@@ -108,6 +111,7 @@ export class IssueProcessorService {
 
             const invalidRejections = comments.filter(comment => comment.body.startsWith('[INVALID REJECTION]')).map(comment => {
                 return {
+                    commentId: comment.id,
                     uid: comment.author.accountId,
                     created: new Date(comment.created).getTime(),
                     text: comment.body
@@ -115,12 +119,31 @@ export class IssueProcessorService {
             })
 
             if (invalidRejections.length > 0) {
-                iss.overrides.invalidRejections.push(...invalidRejections)
-                update.$push = { ...update.$push, 'overrides.invalidRejections': { $each: invalidRejections } }
+                iss.extraData.invalidRejections.push(...invalidRejections)
+                update.$push = { ...update.$push, 'extraData.invalidRejections': { $each: invalidRejections } }
+            }
+
+            const invalidCodeReviews = comments.filter(comment => comment.body.startsWith('[INVALID CODE REVIEW]')).map(comment => {
+                return {
+                    commentId: comment.id,
+                    uid: comment.author.accountId,
+                    created: new Date(comment.created).getTime(),
+                    text: comment.body
+                }
+            })
+
+            if (invalidCodeReviews.length > 0) {
+                iss.extraData.invalidCodeReviews.push(...invalidCodeReviews)
+                update.$push = { ...update.$push, 'extraData.invalidCodeReviews': { $each: invalidCodeReviews } }
+            }
+
+            const isExcluded = comments.some(comment => comment.body.startsWith('[EXCLUDED]'))
+            if (isExcluded) {
+                update.$set = { ...update.$set, 'extraData.excluded': true }
             }
         }
 
-        const metrics = await this.computeIssueMetrics(iss)
+        const metrics = await this.computeIssueMetrics(iss, overrides)
         if (!_.isEmpty(metrics)) {
             update.$set = { ...update.$set, metrics }
         }
@@ -128,9 +151,9 @@ export class IssueProcessorService {
         return update
     }
 
-    private static async computeIssueMetrics(iss: IJiraIssue): Promise<IJiraIssueUserMetrics> {
-        const storyPoints = this.computeStoryPoints(iss)
-        const nRejections = this.computeNRejections(iss)
+    private static async computeIssueMetrics(iss: IJiraIssue, overrides: IJiraIssueOverrides): Promise<IJiraIssueUserMetrics> {
+        const storyPoints = this.computeStoryPoints(iss, overrides)
+        const nRejections = this.computeRejections(iss)
         const nCodeReviews = this.computeNCodeReviews(iss)
         const defects = await this.computeNDefects(iss)
 
@@ -147,9 +170,9 @@ export class IssueProcessorService {
         }, {} as IJiraIssueUserMetrics)
     }
 
-    private static computeStoryPoints(iss: IJiraIssue): Record<string, number> {
-        if (!_.isEmpty(iss.overrides.storyPoints)) {
-            return iss.overrides.storyPoints
+    private static computeStoryPoints(iss: IJiraIssue, overrides: IJiraIssueOverrides): Record<string, number> {
+        if (!_.isEmpty(overrides.storyPoints)) {
+            return overrides.storyPoints
         }
 
         const issueData = new JiraIssueData(iss.data)
@@ -173,23 +196,23 @@ export class IssueProcessorService {
         }, {} as Record<string, number>)
     }
 
-    private static computeNRejections(iss: IJiraIssue): Record<string, number> {
+    private static computeRejections(iss: IJiraIssue): Record<string, number> {
         const rejections: Record<string, number> = {};
         let lastDev: string | null = null;
 
         for (const log of iss.changelog) {
             const statusChange = log.items?.find(item => item.field === 'status');
             if (statusChange) {
-                if (statusChange.toString === 'Code Review') {
+                if (statusChange.toString.includes('Code Review')) {
                     lastDev = log.author.accountId;
-                } else if (statusChange.toString === 'Rejected' && lastDev) {
-                    rejections[lastDev] = (rejections[lastDev] || 0) + 1;
+                } else if (statusChange.toString.includes('Rejected') && lastDev) {
+                    rejections[lastDev] = (rejections[lastDev] ?? 0) + 1
                     lastDev = null;
                 }
             }
         }
 
-        for (const invalidRejection of iss.overrides.invalidRejections) {
+        for (const invalidRejection of iss.extraData.invalidRejections) {
             if (rejections[invalidRejection.uid]) {
                 rejections[invalidRejection.uid]--;
             }
@@ -230,6 +253,13 @@ export class IssueProcessorService {
         }
         return nDefects
     }
+}
+
+export interface IRejectionData {
+    id: string;
+    rejectedBy: string;
+    rejectedAt: number;
+    isActive: boolean;
 }
 
 schedule.scheduleJob('20 * * * * *', () => {

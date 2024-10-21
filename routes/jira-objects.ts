@@ -5,7 +5,7 @@ import { USER_ROLE } from "../glob/cf";
 import AppConfig from "../models/app-config";
 import JiraIssue from "../models/jira-issue.mongo";
 import { GQLJiraObject } from "../models/jira-object.gql";
-import JiraObject, { IJiraObject } from "../models/jira-object.seq";
+import JiraObject, { IJiraObject } from "../models/jira-object.mongo";
 import AuthServ from "../serv/auth";
 import { DocGQLResponse, ValidBody } from "../utils/decors";
 import { AppLogicError } from "../utils/hera";

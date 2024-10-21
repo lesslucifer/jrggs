@@ -41,21 +41,12 @@ export type IJiraIssueMetrics = {
 export type IJiraIssueUserMetrics = Record<string, IJiraIssueMetrics>
 
 export interface IJiraIssueComment {
+    id: string;
     author: IJiraUserInfo;
     created: string;
     body: string;
 }
 
-export interface IJiraIssueOverrides {
-    invalidRejections: {
-        uid: string;
-        created: number;
-        text: string;
-    }[];
-    storyPoints: {
-        [uid: string]: number;
-    }
-}
 export interface IJiraIssue extends IMongoDocument {
     key: string;
     lastSyncAt: number;
@@ -69,10 +60,22 @@ export interface IJiraIssue extends IMongoDocument {
     completedAt?: number;
     completedSprint?: IJiraIssueSprint;
     metrics: IJiraIssueUserMetrics;
-
-    overrides: IJiraIssueOverrides;
     
-    seqSyncAt?: number;
+    extraData: {
+        invalidRejections: {
+            commentId: string;
+            uid: string;
+            created: number;
+            text: string;
+        }[];
+        invalidCodeReviews: {
+            commentId: string;
+            uid: string;
+            created: number;
+            text: string;
+        }[];
+        excluded: boolean;
+    }
 }
 
 const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
