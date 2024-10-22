@@ -156,6 +156,28 @@ class JiraObjectRouter extends ExpressRouter {
             throw new AppLogicError('Jira object not found', 404);
         }
     }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @ValidBody({
+        '@code?': 'string',
+        '@abbrev?': 'string',
+        '@displayName?': 'string',
+        '@avatarUrl?': 'string',
+        '@role?': 'string',
+        '@color?': 'string',
+        '++': false
+    })
+    @PUT({ path: "/:id/fields" })
+    async updateJiraFields(@Params('id') id: string, @Body() body: Partial<IJiraObject['fields']>) {
+        if (!Object.keys(body).length) return
+
+        const result = await JiraObject.updateOne({ id }, {
+            $set: Object.fromEntries(Object.entries(body).map(([k, v]) => [`fields.${k}`, v ?? undefined]))
+        });
+        if (result.matchedCount === 0) {
+            throw new AppLogicError('Jira object not found', 404);
+        }
+    }
 }
 
 export default new JiraObjectRouter();
