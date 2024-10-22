@@ -10,6 +10,7 @@ export interface IJiraObject extends IMongoDocument {
         avatarUrl?: string;
         role?: string;
         color?: string;
+        projectCode?: string;
 
         [key: string]: string;
     }

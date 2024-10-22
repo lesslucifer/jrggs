@@ -45,6 +45,14 @@ export class JIRAService {
         return this.queryJiraIssues(`project = ${projectKey} AND updated > ${lastUpdateTime}`)
     }
 
+    static getSprintInfo(sprintId: number) {
+        return axios.get(`${ENV.JIRA_HOST}/rest/agile/1.0/sprint/${sprintId}`, {
+            headers: {
+                'Authorization': ENV.JIRA_TOKEN
+            }
+        })
+    }
+
     static async getActiveSprints(projectKey: string): Promise<IJiraSprintInfo[]> {
         const resp = await axios.get(`${ENV.JIRA_HOST}/rest/agile/1.0/board`, {
             params: {
@@ -75,6 +83,59 @@ export class JIRAService {
         }
         
         return [];
+    }
+
+    static async getProjectSprints(projectKey: string): Promise<IJiraSprintInfo[]> {
+        // First, get the board ID for the project
+        const boardResp = await axios.get(`${ENV.JIRA_HOST}/rest/agile/1.0/board`, {
+            params: {
+                projectKeyOrId: projectKey,
+                type: 'scrum'
+            },
+            headers: {
+                'Authorization': ENV.JIRA_TOKEN,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!boardResp.data.values || boardResp.data.values.length === 0) {
+            return []; // No board found for the project
+        }
+
+        const boardId = boardResp.data.values[0].id;
+
+        // Now, get all sprints for this board
+        let allSprints: IJiraSprintInfo[] = [];
+        let startAt = 0;
+        const maxResults = 50;
+
+        while (true) {
+            const sprintsResp = await axios.get(`${ENV.JIRA_HOST}/rest/agile/1.0/board/${boardId}/sprint`, {
+                params: {
+                    startAt: startAt,
+                    maxResults: maxResults
+                },
+                headers: {
+                    'Authorization': ENV.JIRA_TOKEN,
+                    'Accept': 'application/json'
+                }
+            });
+
+            const fetchedSprints = sprintsResp.data.values?.map((sprint: any) => ({
+                ...sprint,
+                projectKey: projectKey,
+            })) ?? [];
+
+            allSprints.push(...fetchedSprints);
+
+            if (fetchedSprints.length < maxResults || !sprintsResp.data.isLast === false) {
+                break;
+            }
+
+            startAt += fetchedSprints.length;
+        }
+
+        return allSprints;
     }
 
     static async getIssueChangelog(issueKey: string, startAt: number = 0): Promise<IJiraIssueChangelogRecord[]> {

@@ -38,7 +38,8 @@ export class GQLJiraObject extends GQLModel<IJiraObject, GQLJiraObject> {
             ...(textQuery ? { $text: { $search: textQuery } } : {})
         });
 
-        return await hera.gqlMongoQueryPagination(GQLJiraObject, query, JiraObject, q, {defaultLimit: 1000, maxLimit: 10000})
+        const result = await hera.gqlMongoQueryPagination(GQLJiraObject, query, JiraObject, q, {defaultLimit: 1000, maxLimit: 10000})
+        return result
     }
 }
 

@@ -55,7 +55,7 @@ export class SyncNewlyUpdatedIssues {
         }));
 
         await JiraIssue.bulkWrite(bulkOps);
-        await AppConfig.updateOne({ key: 'SyncIssues_lastUpdateTime' }, { $set: { value: Date.now() } }, { upsert: true })
+        await AppConfig.updateOne({ key: `SyncIssues_lastUpdateTime_${projectKey}` }, { $set: { value: Date.now() } }, { upsert: true })
     }
 }
 
