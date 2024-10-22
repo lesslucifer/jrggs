@@ -3,7 +3,7 @@ import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
-import JiraIssue, { IJiraIssue, IJiraIssueUserMetrics, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueUserMetrics, IJiraRejection, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 
@@ -74,6 +74,7 @@ export class IssueProcessorService {
                 }
             }
         } catch (error) {
+            console.error(error)
             return {
                 filter: { _id: iss._id },
                 update: {
@@ -104,45 +105,35 @@ export class IssueProcessorService {
             }
         }
 
-        const comments = await JIRAService.getIssueComments(iss.key, iss.comments.length)
-        if (comments.length > 0) {
-            iss.comments.push(...comments)
-            update.$push = { ...update.$push, comments: { $each: comments } }
+        const codeReviews: IJiraCodeReview[] = []
+        const rejections: IJiraRejection[] = []
+        let lastDev: string | null = null
+        for (const log of changelog) {
+            const isActive = !overrides?.invalidChangelogIds?.[log.id]
 
-            const invalidRejections = comments.filter(comment => comment.body.startsWith('[INVALID REJECTION]')).map(comment => {
-                return {
-                    commentId: comment.id,
-                    uid: comment.author.accountId,
-                    created: new Date(comment.created).getTime(),
-                    text: comment.body
+            if (log.items?.some(item => item.field === 'status' && item.toString.includes('Code Review'))) {
+                if (isActive) {
+                    lastDev = log.author.accountId
                 }
-            })
-
-            if (invalidRejections.length > 0) {
-                iss.extraData.invalidRejections.push(...invalidRejections)
-                update.$push = { ...update.$push, 'extraData.invalidRejections': { $each: invalidRejections } }
+                codeReviews.push({
+                    changelogId: log.id,
+                    userId: log.author.accountId,
+                    time: new Date(log.created).getTime(),
+                    isActive
+                })
             }
 
-            const invalidCodeReviews = comments.filter(comment => comment.body.startsWith('[INVALID CODE REVIEW]')).map(comment => {
-                return {
-                    commentId: comment.id,
-                    uid: comment.author.accountId,
-                    created: new Date(comment.created).getTime(),
-                    text: comment.body
-                }
-            })
-
-            if (invalidCodeReviews.length > 0) {
-                iss.extraData.invalidCodeReviews.push(...invalidCodeReviews)
-                update.$push = { ...update.$push, 'extraData.invalidCodeReviews': { $each: invalidCodeReviews } }
-            }
-
-            const isExcluded = comments.some(comment => comment.body.startsWith('[EXCLUDED]'))
-            if (isExcluded) {
-                iss.extraData.excluded = true
-                update.$set = { ...update.$set, 'extraData.excluded': true }
+            if (log.items?.some(item => item.field === 'status' && item.toString.includes('Rejected'))) {
+                rejections.push({
+                    changelogId: log.id,
+                    userId: lastDev,
+                    rejectedBy: log.author.accountId,
+                    time: new Date(log.created).getTime(),
+                    isActive
+                })
             }
         }
+        update.$set = { ...update.$set, 'extraData.codeReviews': codeReviews, 'extraData.rejections': rejections }
 
         if (!_.isEmpty(overrides?.storyPoints)) {
             iss.extraData.storyPoints = overrides.storyPoints
@@ -204,46 +195,11 @@ export class IssueProcessorService {
     }
 
     private static computeRejections(iss: IJiraIssue): Record<string, number> {
-        const rejections: Record<string, number> = {};
-        let lastDev: string | null = null;
-
-        for (const log of iss.changelog) {
-            const statusChange = log.items?.find(item => item.field === 'status');
-            if (statusChange) {
-                if (statusChange.toString.includes('Code Review')) {
-                    lastDev = log.author.accountId;
-                } else if (statusChange.toString.includes('Rejected') && lastDev) {
-                    rejections[lastDev] = (rejections[lastDev] ?? 0) + 1
-                    lastDev = null;
-                }
-            }
-        }
-
-        for (const invalidRejection of iss.extraData.invalidRejections) {
-            if (rejections[invalidRejection.uid]) {
-                rejections[invalidRejection.uid]--;
-            }
-        }
-
-        return Object.fromEntries(
-            Object.entries(rejections).filter(([_, value]) => value > 0)
-        );
+        return _.countBy((iss.extraData?.rejections ?? []).filter(rej => rej.isActive).map(rej => rej.userId))
     }
 
     private static computeNCodeReviews(iss: IJiraIssue): Record<string, number> {
-        const codeReviews: Record<string, number> = {};
-
-        for (const log of iss.changelog) {
-            const statusChange = log.items?.find(item => item.field === 'status');
-            if (statusChange) {
-                if (statusChange.toString === 'Code Review') {
-                    codeReviews[log.author.accountId] = (codeReviews[log.author.accountId] || 0) + 1
-                }
-            }
-        }
-        return Object.fromEntries(
-            Object.entries(codeReviews).filter(([_, value]) => value > 0)
-        );
+        return _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
     }
 
     private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, string[]>> {
@@ -251,8 +207,7 @@ export class IssueProcessorService {
         const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))
         const nDefects: Record<string, string[]> = {}
         for (const defect of defects) {
-            if (defect.comments.some(comment => comment.body.toLowerCase().includes('[invalid defect]'))) continue
-            const devId = defect.changelog.find(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review'))?.author.accountId ?? ''
+            const devId = _.first(defect.extraData?.codeReviews)?.userId ?? ''
             if (!(devId in nDefects)) {
                 nDefects[devId] = []
             }
@@ -260,13 +215,6 @@ export class IssueProcessorService {
         }
         return nDefects
     }
-}
-
-export interface IRejectionData {
-    id: string;
-    rejectedBy: string;
-    rejectedAt: number;
-    isActive: boolean;
 }
 
 schedule.scheduleJob('20 * * * * *', () => {

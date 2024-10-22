@@ -95,20 +95,6 @@ class JiraObjectRouter extends ExpressRouter {
                     }
                 })
             })
-
-            issue.comments.forEach(comment => {
-                if (comment.author?.accountId) {
-                    jiraObjects.set(comment.author.accountId, {
-                        id: comment.author.accountId,
-                        type: 'user',
-                        fields: {
-                            ...jiraObjects.get(comment.author.accountId)?.fields,
-                            displayName: comment.author.displayName,
-                            avatarUrl: comment.author.avatarUrls?.['48x48'] || _.last(Object.values(comment.author.avatarUrls || {}))
-                        },
-                    })
-                }
-            })
         })
 
         const bulkOps = Array.from(jiraObjects.values()).map(obj => ({

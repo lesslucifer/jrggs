@@ -4,7 +4,11 @@ export interface IJiraIssueOverrides {
     key: string;
     storyPoints: {
         [uid: string]: number;
-    }
+    },
+    invalidChangelogIds?: {
+        [id: string]: boolean;
+    };
+    excluded?: boolean;
 }
 
 const JiraIssueOverrides = MongoModel.createCollection<IJiraIssueOverrides>('jira_issue_overrides', {
