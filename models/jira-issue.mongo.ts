@@ -31,6 +31,21 @@ export interface IJiraIssueChangelogRecord {
     }[];
 }
 
+export interface IJiraRejection {
+    changelogId: string;
+    userId: string;
+    time: number;
+    rejectedBy: string;
+    isActive: boolean;
+}
+
+export interface IJiraCodeReview {
+    changelogId: string;
+    userId: string;
+    time: number;
+    isActive: boolean;
+}
+
 export type IJiraIssueMetrics = {
     storyPoints: number;
     nRejections: number;
@@ -55,27 +70,16 @@ export interface IJiraIssue extends IMongoDocument {
     data: Record<string, any>;
     
     changelog: IJiraIssueChangelogRecord[];
-    comments: IJiraIssueComment[];
 
     completedAt?: number;
     completedSprint?: IJiraIssueSprint;
     metrics: IJiraIssueUserMetrics;
     
-    extraData: {
-        invalidRejections: {
-            commentId: string;
-            uid: string;
-            created: number;
-            text: string;
-        }[];
-        invalidCodeReviews: {
-            commentId: string;
-            uid: string;
-            created: number;
-            text: string;
-        }[];
-        storyPoints: Record<string, number>;
-        excluded: boolean;
+    extraData?: {
+        storyPoints?: Record<string, number>;
+        excluded?: boolean;
+        rejections?: IJiraRejection[];
+        codeReviews?: IJiraCodeReview[];
     }
 }
 

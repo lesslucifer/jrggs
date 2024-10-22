@@ -1,19 +1,28 @@
-import { ExpressRouter, GET, PUT, Params, Body } from "express-router-ts";
+import { Body, ExpressRouter, GET, PUT, Params } from "express-router-ts";
 import _ from "lodash";
-import moment from "moment";
-import { Filter } from "mongodb";
-import JiraIssue, { IJiraIssue, IJiraIssueMetrics } from "../models/jira-issue.mongo";
-import { AppLogicError } from "../utils/hera";
-import { AuthServ } from "../serv/auth";
 import { USER_ROLE } from "../glob/cf";
-import { ValidBody } from "../utils/decors";
 import JiraIssueOverrides from "../models/jira-issue-overrides.mongo";
+import JiraIssue, { JiraIssueSyncStatus } from "../models/jira-issue.mongo";
 import JiraObject from "../models/jira-object.mongo";
+import { AuthServ } from "../serv/auth";
 import { JiraIssueData } from "../serv/jira";
+import { ValidBody } from "../utils/decors";
+import { AppLogicError } from "../utils/hera";
 
 class JiraIssueRouter extends ExpressRouter {
     document = {
         'tags': ['Jira Issues']
+    }
+
+    @AuthServ.authUser()
+    @GET({ path: "/:key/metrics" })
+    async getIssueMetrics(@Params('key') key: string) {
+        const issue = await JiraIssue.findOne({ key });
+        const data = new JiraIssueData(issue.data)
+        return {
+            key: issue.key,
+            metrics: issue.metrics
+        };
     }
 
     @AuthServ.authUser()
@@ -24,11 +33,14 @@ class JiraIssueRouter extends ExpressRouter {
         return {
             key: issue.key,
             title: data.summary,
+            type: data.type,
+            severity: data.severity,
             storyPoints: data.storyPoint,
             extraData: issue.extraData ?? {},
             metrics: issue.metrics,
             completedAt: issue.completedAt,
-            completedSprint: issue.completedSprint
+            completedSprint: issue.completedSprint,
+            syncStatus: issue.syncStatus
         };
     }
 
@@ -58,6 +70,21 @@ class JiraIssueRouter extends ExpressRouter {
         );
 
         return overrides;
+    }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @PUT({ path: "/:key/sync-status/PENDING" })
+    async updateSyncStatusToPending(@Params('key') key: string) {
+        const issue = await JiraIssue.findOneAndUpdate(
+            { key },
+            { $set: { syncStatus: JiraIssueSyncStatus.PENDING } }
+        );
+
+        if (!issue) {
+            throw new AppLogicError(`Issue with key ${key} not found`, 404);
+        }
+
+        return issue;
     }
 }
 
