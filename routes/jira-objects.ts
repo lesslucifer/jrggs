@@ -35,6 +35,7 @@ class JiraObjectRouter extends ExpressRouter {
                     jiraObjects.set(change.author.accountId, {
                         id: change.author.accountId,
                         type: 'user',
+                        lastUpdatedAt: Date.now(),
                         fields: {
                             ...jiraObjects.get(change.author.accountId)?.fields,
                             displayName: change.author.displayName,
@@ -70,6 +71,7 @@ class JiraObjectRouter extends ExpressRouter {
                 update: {
                     $set: {
                         type: 'sprint',
+                        lastUpdatedAt: Date.now(),
                         fields: {
                             displayName: sprint.name,
                             projectCode: sprint.projectKey
@@ -100,7 +102,10 @@ class JiraObjectRouter extends ExpressRouter {
         '++': false
     })
     async updateJiraObject(@Params('id') id: string, @Body() body: Partial<IJiraObject>) {
-        const result = await JiraObject.updateOne({ id }, { $set: body });
+        const result = await JiraObject.updateOne({ id }, { $set: {
+            ...body,
+            lastUpdatedAt: Date.now()
+        } });
         if (result.matchedCount === 0) {
             throw new AppLogicError('Jira object not found', 404);
         }
@@ -132,7 +137,10 @@ class JiraObjectRouter extends ExpressRouter {
         if (!Object.keys(body).length) return
 
         const result = await JiraObject.updateOne({ id }, {
-            $set: Object.fromEntries(Object.entries(body).map(([k, v]) => [`fields.${k}`, v ?? undefined]))
+            $set: {
+                lastUpdatedAt: Date.now(),
+                ...Object.fromEntries(Object.entries(body).map(([k, v]) => [`fields.${k}`, v ?? undefined])),
+            }
         });
         if (result.matchedCount === 0) {
             throw new AppLogicError('Jira object not found', 404);

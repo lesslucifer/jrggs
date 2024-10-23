@@ -10,14 +10,14 @@ import winston = require('winston/lib/winston/config');
 import terminate from './serv/terminate';
 import createSesssionObject from './serv/sess';
 import _ from 'lodash';
+import JiraObjectServ from './serv/jira-object.serv';
 
 export class Program {
     static server: express.Express;
 
     public static async setup() {
         await CONN.configureConnections(ENV);
-
-        // AuthServ.MODEL = UserServ
+        await JiraObjectServ.forceRefreshCache()
 
         const server = express();
         this.server = server;

@@ -3,6 +3,7 @@ import { IMongoDocument, MongoModel } from "../utils/mongo-model";
 export interface IJiraObject extends IMongoDocument {
     id: string;
     type: string;
+    lastUpdatedAt: number;
     fields: {
         code?: string;
         abbrev?: string;
@@ -22,6 +23,7 @@ const JiraObject = MongoModel.createCollection<IJiraObject>('jira_object', {
         { name: 'type', index: { type: 1 } },
         { name: 'fields.displayName', index: { 'fields.displayName': 1 } },
         { name: 'text', index: { 'fields.displayName': 'text', 'fields.code': 'text', 'fields.abbrev': 'text' }, opts: { default_language: 'none' } },
+        { name: 'lastUpdatedAt', index: { lastUpdatedAt: -1 } },
     ]
 })
 

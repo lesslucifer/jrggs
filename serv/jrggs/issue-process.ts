@@ -6,6 +6,7 @@ import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue
 import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueUserMetrics, IJiraRejection, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
+import JiraObjectServ from "../jira-object.serv";
 
 export class IssueProcessorService {
     private static Lock = new AsyncLockExt()
@@ -108,10 +109,11 @@ export class IssueProcessorService {
         const codeReviews: IJiraCodeReview[] = []
         const rejections: IJiraRejection[] = []
         let lastDev: string | null = null
-        for (const log of changelog) {
+        for (const log of iss.changelog) {
             const isActive = !overrides?.invalidChangelogIds?.[log.id]
+            const author = JiraObjectServ.get(log.author.accountId)
 
-            if (log.items?.some(item => item.field === 'status' && item.toString.includes('Code Review'))) {
+            if (author?.fields.role === 'DEV' && log.items?.some(item => item.field === 'status' && item.toString.includes('Code Review'))) {
                 if (isActive) {
                     lastDev = log.author.accountId
                 }
@@ -133,7 +135,11 @@ export class IssueProcessorService {
                 })
             }
         }
-        update.$set = { ...update.$set, 'extraData.codeReviews': codeReviews, 'extraData.rejections': rejections }
+        iss.extraData = {
+            ...iss.extraData,
+            codeReviews,
+            rejections
+        }
 
         if (!_.isEmpty(overrides?.storyPoints)) {
             iss.extraData.storyPoints = overrides.storyPoints
@@ -179,7 +185,7 @@ export class IssueProcessorService {
             return {}
         }
 
-        const devCounter = _.countBy(iss.changelog.filter(log => log.items?.some(item => item.field === 'status' && item.toString === 'Code Review')), log => log.author.accountId)
+        const devCounter = _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
         const sortedDevs = _.sortBy(Object.keys(devCounter), (uid) => -devCounter[uid])
         if (sortedDevs.length === 0) {
             sortedDevs.push('unknown')
@@ -207,7 +213,7 @@ export class IssueProcessorService {
         const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))
         const nDefects: Record<string, string[]> = {}
         for (const defect of defects) {
-            const devId = _.first(defect.extraData?.codeReviews)?.userId ?? ''
+            const devId = _.first(defect.extraData?.codeReviews)?.userId ?? 'unknown'
             if (!(devId in nDefects)) {
                 nDefects[devId] = []
             }
