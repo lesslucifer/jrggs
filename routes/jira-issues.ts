@@ -72,7 +72,7 @@ class JiraIssueRouter extends ExpressRouter {
             { upsert: true }
         );
 
-        await JiraIssue.updateOne({ key }, { $set: { 'extraData.storyPoints': body.storyPoints, syncStatus: JiraIssueSyncStatus.PENDING } });
+        await JiraIssue.updateOne({ key }, { $set: { 'extraData.storyPoints': _.sortBy(Object.entries(body.storyPoints).map(([uid, sp]) => ({ userId: uid, storyPoints: sp })), 'userId'), syncStatus: JiraIssueSyncStatus.PENDING } });
         IssueProcessorService.checkToProcess()
 
         return overrides;
@@ -148,6 +148,34 @@ class JiraIssueRouter extends ExpressRouter {
                 }
             }
         ]);
+        IssueProcessorService.checkToProcess()
+
+        return overrides;
+    }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @PUT({ path: "/:key/overrides/invalidDefectsIds/:defectId/:invalid" })
+    async updateDefectInvalidation(@Params('key') key: string, @Params('defectId') defectId: string, @Params('invalid') sInvalid: string) {
+        const isInvalid = GQLU.toBoolean(sInvalid)
+        const issue = await JiraIssue.findOne({ key }, { projection: { _id: 1, key: 1, extraData: 1 } });
+        if (!issue) {
+            throw new AppLogicError(`Issue with key ${key} not found`, 404);
+        }
+
+        const overrides = await JiraIssueOverrides.findOneAndUpdate(
+            { key },
+            { $set: { [`invalidDefectsIds.${defectId}`]: isInvalid } },
+            { upsert: true }
+        );
+
+        await JiraIssue.updateOne({ key }, {
+            $set: {
+                'extraData.defects.$[def].isActive': !isInvalid,
+                syncStatus: JiraIssueSyncStatus.PENDING
+            }
+        }, {
+            arrayFilters: [{ 'def.issueKey': defectId }]
+        });
         IssueProcessorService.checkToProcess()
 
         return overrides;

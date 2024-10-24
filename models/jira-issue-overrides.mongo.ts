@@ -8,6 +8,9 @@ export interface IJiraIssueOverrides {
     invalidChangelogIds?: {
         [id: string]: boolean;
     };
+    invalidDefectsIds?: {
+        [id: string]: boolean;
+    };
     excluded?: boolean;
 }
 

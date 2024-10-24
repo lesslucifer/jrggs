@@ -49,7 +49,7 @@ export interface IJiraCodeReview {
 export type IJiraIssueMetrics = {
     storyPoints: number;
     nRejections: number;
-    defects: string[];
+    defects: number;
     nCodeReviews: number;
 }
 
@@ -76,7 +76,15 @@ export interface IJiraIssue extends IMongoDocument {
     metrics: IJiraIssueUserMetrics;
     
     extraData?: {
-        storyPoints?: Record<string, number>;
+        storyPoints?: {
+            userId: string;
+            storyPoints: number;
+        }[];
+        defects?: {
+            userId: string;
+            issueKey: string;
+            isActive: boolean;
+        }[];
         excluded?: boolean;
         rejections?: IJiraRejection[];
         codeReviews?: IJiraCodeReview[];

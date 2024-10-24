@@ -25,17 +25,16 @@ class JiraIssueRouter extends ExpressRouter {
                 metrics: Object.values(iss.metrics).reduce((metrics, userMetrics) => {
                     metrics.storyPoints += userMetrics.storyPoints
                     metrics.nRejections += userMetrics.nRejections
-                    metrics.defects.push(...userMetrics.defects)
+                    metrics.defects += userMetrics.defects
                     metrics.nCodeReviews += userMetrics.nCodeReviews
                     return metrics
                 }, {
                     storyPoints: 0,
                     nRejections: 0,
-                    defects: [],
+                    defects: 0,
                     nCodeReviews: 0,
                 } as IJiraIssueMetrics)
             }
-            record.metrics.defects = _.uniq(record.metrics.defects)
             return record
         })
     }
@@ -43,11 +42,9 @@ class JiraIssueRouter extends ExpressRouter {
     @GET({ path: '/devReviews'})
     async getDevReviewsReport(@Query() query: any) {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
-        const issues = await JiraIssue.find(queryObj).toArray()
+        const issues = await JiraIssue.find(queryObj, { projection: { _id: 0, key: 1, metrics: 1 } }).toArray()
 
         const result = issues.reduce((acc, issue) => {
-            const sprintId = issue.completedSprint?.id?.toString() || ''
-            
             Object.entries(issue.metrics).forEach(([userId, metrics]) => {
                 const key = userId
                 if (!acc[key]) {
@@ -57,7 +54,7 @@ class JiraIssueRouter extends ExpressRouter {
                             issues: [],
                             storyPoints: 0,
                             nRejections: 0,
-                            defects: new Set(),
+                            defects: 0,
                             nCodeReviews: 0
                         }
                     }
@@ -66,7 +63,7 @@ class JiraIssueRouter extends ExpressRouter {
                 acc[key].metrics.issues.push(issue.key)
                 acc[key].metrics.storyPoints += metrics.storyPoints
                 acc[key].metrics.nRejections += metrics.nRejections
-                metrics.defects.forEach(defect => acc[key].metrics.defects.add(defect))
+                acc[key].metrics.defects += metrics.defects
                 acc[key].metrics.nCodeReviews += metrics.nCodeReviews
             })
 
@@ -77,18 +74,13 @@ class JiraIssueRouter extends ExpressRouter {
                 issues: string[],
                 storyPoints: number,
                 nRejections: number,
-                defects: Set<string>,
+                defects: number,
                 nCodeReviews: number
             }
         }>)
 
-        return _.orderBy(Object.values(result).map(item => ({
-            ...item,
-            metrics: {
-                ...item.metrics,
-                defects: Array.from(item.metrics.defects)
-            }
-        })), ['user'])
+        console.log("result", JSON.stringify(Object.values(result)))
+        return _.orderBy(Object.values(result), ['user'])
     }
 
     private getIssuesQueryFromHttpQuery(query: any, allowedQuery: string[]) {

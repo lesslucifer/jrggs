@@ -35,16 +35,13 @@ export class SyncNewlyUpdatedIssues {
                     },
                     $setOnInsert: {
                         metrics: {},
-                        overrides: {
-                            invalidRejections: [],
-                            storyPoints: {}
-                        },
                         changelog: [],
                         comments: [],
                         extraData: {
                             invalidRejections: [],
                             invalidCodeReviews: [],
-                            storyPoints: {},
+                            storyPoints: [],
+                            defects: [],
                             excluded: false
                         },
                         seqSyncAt: null

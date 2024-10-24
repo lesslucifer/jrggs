@@ -106,6 +106,30 @@ export class IssueProcessorService {
             }
         }
 
+        const { codeReviews, rejections } = this.computeCodeReviewsAndRejections(iss, overrides)
+        iss.extraData = {
+            ...iss.extraData,
+            codeReviews,
+            rejections
+        }
+        update.$set = { ...update.$set, 'extraData.codeReviews': codeReviews, 'extraData.rejections': rejections }
+
+        const defects = await this.computeDefects(iss, overrides)
+        iss.extraData = { ...iss.extraData, defects }
+        update.$set = { ...update.$set, 'extraData.defects': defects }
+
+        const storyPoints = this.computeStoryPoints(iss, overrides)
+        iss.extraData = { ...iss.extraData, storyPoints }
+        update.$set = { ...update.$set, 'extraData.storyPoints': storyPoints }
+
+        const metrics = this.computeIssueMetrics(iss)
+        iss.metrics = metrics
+        update.$set = { ...update.$set, metrics }
+
+        return update
+    }
+
+    private static computeCodeReviewsAndRejections(iss: IJiraIssue, overrides?: IJiraIssueOverrides): { codeReviews: IJiraCodeReview[], rejections: IJiraRejection[] } {
         const codeReviews: IJiraCodeReview[] = []
         const rejections: IJiraRejection[] = []
         let lastDev: string | null = null
@@ -135,54 +159,18 @@ export class IssueProcessorService {
                 })
             }
         }
-        iss.extraData = {
-            ...iss.extraData,
-            codeReviews,
-            rejections
-        }
+        return { codeReviews, rejections }
+    }
 
+    private static computeStoryPoints(iss: IJiraIssue, overrides?: IJiraIssueOverrides): { userId: string; storyPoints: number }[] {
         if (!_.isEmpty(overrides?.storyPoints)) {
-            iss.extraData.storyPoints = overrides.storyPoints
-            update.$set = { ...update.$set, 'extraData.storyPoints': overrides.storyPoints }
-        }
-
-        const metrics = await this.computeIssueMetrics(iss)
-        if (!_.isEmpty(metrics)) {
-            iss.metrics = metrics
-            update.$set = { ...update.$set, metrics }
-        }
-
-        return update
-    }
-
-    private static async computeIssueMetrics(iss: IJiraIssue): Promise<IJiraIssueUserMetrics> {
-        const storyPoints = this.computeStoryPoints(iss)
-        const nRejections = this.computeRejections(iss)
-        const nCodeReviews = this.computeNCodeReviews(iss)
-        const defects = await this.computeNDefects(iss)
-
-        const uids = new Set([...Object.keys(storyPoints), ...Object.keys(nRejections), ...Object.keys(nCodeReviews), ...Object.keys(defects)])
-
-        return Array.from(uids).reduce((metrics, uid) => {
-            metrics[uid] = {
-                storyPoints: storyPoints[uid] ?? 0,
-                nRejections: nRejections[uid] ?? 0,
-                nCodeReviews: nCodeReviews[uid] ?? 0,
-                defects: defects[uid] ?? [],
-            }
-            return metrics
-        }, {} as IJiraIssueUserMetrics)
-    }
-
-    private static computeStoryPoints(iss: IJiraIssue): Record<string, number> {
-        if (!_.isEmpty(iss.extraData.storyPoints)) {
-            return iss.extraData.storyPoints
+            return Object.entries(overrides.storyPoints).map(([uid, sp]) => ({ userId: uid, storyPoints: sp })).filter(sp => sp.storyPoints > 0)
         }
 
         const issueData = new JiraIssueData(iss.data)
         const sp = issueData.storyPoint
         if (sp === 0) {
-            return {}
+            return []
         }
 
         const devCounter = _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
@@ -191,35 +179,38 @@ export class IssueProcessorService {
             sortedDevs.push('unknown')
         }
 
-        return sortedDevs.reduce((acc, uid, idx) => {
+        return sortedDevs.map((uid, idx) => {
             const devSp = Math.floor(sp / sortedDevs.length) + (idx < sp % sortedDevs.length ? 1 : 0)
-            if (devSp > 0) {
-                acc[uid] = devSp
-            }
-            return acc
-        }, {} as Record<string, number>)
+            return { userId: uid, storyPoints: devSp }
+        })
     }
 
-    private static computeRejections(iss: IJiraIssue): Record<string, number> {
-        return _.countBy((iss.extraData?.rejections ?? []).filter(rej => rej.isActive).map(rej => rej.userId))
-    }
-
-    private static computeNCodeReviews(iss: IJiraIssue): Record<string, number> {
-        return _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
-    }
-
-    private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, string[]>> {
+    private static async computeDefects(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<{ userId: string; issueKey: string; isActive: boolean }[]> {
         const subIssues = await JiraIssue.find({ 'data.fields.parent.key': iss.key, 'extraData.excluded': { $ne: true } }).toArray()
-        const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))
-        const nDefects: Record<string, string[]> = {}
-        for (const defect of defects) {
-            const devId = _.first(defect.extraData?.codeReviews)?.userId ?? 'unknown'
-            if (!(devId in nDefects)) {
-                nDefects[devId] = []
+        return subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect')).map(sub => ({
+            userId: _.first(sub.extraData?.codeReviews)?.userId ?? 'unknown',
+            issueKey: sub.key,
+            isActive: !overrides?.invalidDefectsIds?.[sub.key]
+        }))
+    }
+
+    private static computeIssueMetrics(iss: IJiraIssue): IJiraIssueUserMetrics {
+        const storyPoints = _.chain(iss.extraData.storyPoints).keyBy('userId').mapValues('storyPoints').value()
+        const nRejections = _.countBy((iss.extraData?.rejections ?? []).filter(rej => rej.isActive).map(rej => rej.userId))
+        const nCodeReviews = _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
+        const defects = _.countBy((iss.extraData?.defects ?? []).filter(d => d.isActive).map(d => d.userId))
+
+        const uids = new Set([...Object.keys(storyPoints), ...Object.keys(nRejections), ...Object.keys(nCodeReviews), ...Object.keys(defects)])
+
+        return Array.from(uids).reduce((metrics, uid) => {
+            metrics[uid] = {
+                storyPoints: storyPoints[uid] ?? 0,
+                nRejections: nRejections[uid] ?? 0,
+                nCodeReviews: nCodeReviews[uid] ?? 0,
+                defects: defects[uid] ?? 0,
             }
-            nDefects[devId].push(defect.key)
-        }
-        return nDefects
+            return metrics
+        }, {} as IJiraIssueUserMetrics)
     }
 }
 
