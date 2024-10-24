@@ -5,12 +5,14 @@ import { Filter } from "mongodb";
 import JiraIssue, { IJiraIssue, IJiraIssueMetrics } from "../models/jira-issue.mongo";
 import { AppLogicError } from "../utils/hera";
 import { JiraIssueData } from "../serv/jira";
+import AuthServ from "../serv/auth";
 
 class JiraIssueRouter extends ExpressRouter {
     document = {
         'tags': ['Reports']
     }
 
+    @AuthServ.authUser()
     @GET({ path: '/overall'})
     async getOverallReport(@Query() query: any): Promise<IJiraIssueReportRecord[]> {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
@@ -39,6 +41,7 @@ class JiraIssueRouter extends ExpressRouter {
         })
     }
 
+    @AuthServ.authUser()
     @GET({ path: '/devReviews'})
     async getDevReviewsReport(@Query() query: any) {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
