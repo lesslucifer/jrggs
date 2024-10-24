@@ -209,7 +209,7 @@ export class IssueProcessorService {
     }
 
     private static async computeNDefects(iss: IJiraIssue): Promise<Record<string, string[]>> {
-        const subIssues = await JiraIssue.find({ 'data.fields.parent.key': iss.key }).toArray()
+        const subIssues = await JiraIssue.find({ 'data.fields.parent.key': iss.key, 'extraData.excluded': { $ne: true } }).toArray()
         const defects = subIssues.filter(sub => new JiraIssueData(sub.data).summary?.toLowerCase().includes('defect'))
         const nDefects: Record<string, string[]> = {}
         for (const defect of defects) {

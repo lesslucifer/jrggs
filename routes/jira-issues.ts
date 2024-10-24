@@ -82,7 +82,7 @@ class JiraIssueRouter extends ExpressRouter {
     @PUT({ path: "/:key/overrides/excluded/:isExcluded" })
     async updateExcludedOverride(@Params('key') key: string, @Params('isExcluded') sIsExcluded: string) {
         const isExcluded = GQLU.toBoolean(sIsExcluded)
-        const issue = await JiraIssue.findOne({ key }, { projection: { _id: 1, key: 1 } });
+        const issue = await JiraIssue.findOne({ key }, { projection: { _id: 1, key: 1, data: 1 } });
         if (!issue) {
             throw new AppLogicError(`Issue with key ${key} not found`, 404);
         }
@@ -94,6 +94,10 @@ class JiraIssueRouter extends ExpressRouter {
         );
 
         await JiraIssue.updateOne({ key }, { $set: { 'extraData.excluded': isExcluded, syncStatus: JiraIssueSyncStatus.PENDING } });
+        if (issue.data?.fields?.parent?.key) {
+            await JiraIssue.updateOne({ key: issue.data.fields.parent.key }, { $set: { syncStatus: JiraIssueSyncStatus.PENDING } });
+        }
+
         IssueProcessorService.checkToProcess()
 
         return overrides;
