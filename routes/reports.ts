@@ -79,7 +79,6 @@ class JiraIssueRouter extends ExpressRouter {
             }
         }>)
 
-        console.log("result", JSON.stringify(Object.values(result)))
         return _.orderBy(Object.values(result), ['user'])
     }
 
