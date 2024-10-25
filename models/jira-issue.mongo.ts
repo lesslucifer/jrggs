@@ -62,14 +62,25 @@ export interface IJiraIssueComment {
     body: string;
 }
 
+export interface IJiraIssueHistoryRecord {
+    assigneeId: string;
+    assigneeName?: string;
+    status: string;
+    storyPoints?: number;
+    estSP?: number;
+    sprintId?: number;
+    sprintName?: string;
+    time: number;
+}
+
 export interface IJiraIssue extends IMongoDocument {
     key: string;
-    lastSyncAt: number;
-    
-    syncStatus: JiraIssueSyncStatus;
+
     data: Record<string, any>;
-    
     changelog: IJiraIssueChangelogRecord[];
+
+    history?: IJiraIssueHistoryRecord[];
+    current?: IJiraIssueHistoryRecord;
 
     completedAt?: number;
     completedSprint?: IJiraIssueSprint;
@@ -89,6 +100,12 @@ export interface IJiraIssue extends IMongoDocument {
         rejections?: IJiraRejection[];
         codeReviews?: IJiraCodeReview[];
     }
+
+    lastSyncAt: number;
+    syncStatus: JiraIssueSyncStatus;
+    syncParams?: {
+        refreshHistory: boolean;
+    };
 }
 
 const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
@@ -97,8 +114,7 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'syncStatus-1', index: { syncStatus: 1, _id: -1 } },
         { name: 'completedAt-1', index: { completedAt: -1 } },
         { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
-        { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } },
-        { name: 'seqSyncAt-1', index: { seqSyncAt: -1, _id: 1 } },
+        { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } }
     ]
 })
 

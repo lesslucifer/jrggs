@@ -1,4 +1,4 @@
-import { Body, ExpressRouter, GET, PUT, Params } from "express-router-ts";
+import { Body, ExpressRouter, GET, PUT, Params, Query } from "express-router-ts";
 import _ from "lodash";
 import { USER_ROLE } from "../glob/cf";
 import JiraIssueOverrides from "../models/jira-issue-overrides.mongo";
@@ -186,7 +186,7 @@ class JiraIssueRouter extends ExpressRouter {
     async updateSyncStatusToPending(@Params('key') key: string) {
         const issue = await JiraIssue.findOneAndUpdate(
             { key },
-            { $set: { syncStatus: JiraIssueSyncStatus.PENDING } }
+            { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { refreshHistory: true } } }
         );
 
         if (!issue) {
@@ -200,7 +200,7 @@ class JiraIssueRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/sync-all" })
     async syncAllIssues() {
-        await JiraIssue.updateMany({}, { $set: { syncStatus: JiraIssueSyncStatus.PENDING } });
+        await JiraIssue.updateMany({}, { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { refreshHistory: true } } });
         IssueProcessorService.checkToProcess()
     }
 }

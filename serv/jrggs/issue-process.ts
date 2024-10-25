@@ -3,7 +3,7 @@ import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
-import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueUserMetrics, IJiraRejection, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
@@ -69,8 +69,8 @@ export class IssueProcessorService {
                     $set: {
                         ...update.$set,
                         syncStatus: JiraIssueSyncStatus.SUCCESS,
+                        syncParams: undefined,
                         lastSyncAt: Date.now(),
-                        seqSyncAt: null
                     }
                 }
             }
@@ -91,6 +91,8 @@ export class IssueProcessorService {
     static async updateIssue(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<UpdateFilter<IJiraIssue>> {
         const update: UpdateFilter<IJiraIssue> = {}
 
+        const doesRefreshHistory = iss.syncParams?.refreshHistory
+
         const changelog = await JIRAService.getIssueChangelog(iss.key, iss.changelog.length)
         if (changelog.length > 0) {
             iss.changelog.push(...changelog)
@@ -104,6 +106,22 @@ export class IssueProcessorService {
             if (finishLog) {
                 update.$set = { ...update.$set, completedAt: new Date(finishLog.created).getTime(), completedSprint: new JiraIssueData(iss.data).lastSprint }
             }
+
+            if (!doesRefreshHistory) {
+                const history = this.computeIssueHistoryRecords(changelog, _.last(iss.history))
+                if (history.length > 0) {
+                    iss.history ??= []
+                    iss.history.push(...history)
+                    update.$push = { ...update.$push, history: { $each: history } }
+                    update.$set = { ...update.$set, current: _.last(history) }
+                }
+            }
+        }
+        
+        if (doesRefreshHistory) {
+            const history = this.computeIssueHistoryRecords(iss.changelog)
+            iss.history = history
+            update.$set = { ...update.$set, history: history, current: _.last(history) }
         }
 
         const { codeReviews, rejections } = this.computeCodeReviewsAndRejections(iss, overrides)
@@ -127,6 +145,52 @@ export class IssueProcessorService {
         update.$set = { ...update.$set, metrics }
 
         return update
+    }
+
+    private static computeIssueHistoryRecords(changelogs: IJiraIssueChangelogRecord[], current?: IJiraIssueHistoryRecord): IJiraIssueHistoryRecord[] {
+        const history: IJiraIssueHistoryRecord[] = [];
+        let lastRecord: IJiraIssueHistoryRecord | undefined = current
+
+        // Process all changelogs in chronological order
+        for (const log of changelogs) {
+            const time = new Date(log.created).getTime();
+            const update: Partial<IJiraIssueHistoryRecord> = {};
+
+            // Process each change item in the changelog
+            for (const item of log.items || []) {
+                switch (item.field) {
+                    case 'assignee':
+                        update.assigneeId = item.to || undefined;
+                        update.assigneeName = item.toString || undefined;
+                        break;
+                    case 'status':
+                        update.status = item.toString || '';
+                        break;
+                    case 'Story Points':
+                        update.storyPoints = item.toString ? Number(item.toString) : undefined;
+                        break;
+                    case 'Sprint':
+                        update.sprintId = Number(_.last(item.to?.split(','))?.trim()) || undefined;
+                        update.sprintName = _.last(item.toString?.split(','))?.trim() || undefined;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            if (!_.isEmpty(update)) {
+                const newRecord: IJiraIssueHistoryRecord = {
+                    ...lastRecord,
+                    ...update,
+                    time
+                }
+
+                history.push(newRecord)
+                lastRecord = newRecord
+            }
+        }
+
+        return history;
     }
 
     private static computeCodeReviewsAndRejections(iss: IJiraIssue, overrides?: IJiraIssueOverrides): { codeReviews: IJiraCodeReview[], rejections: IJiraRejection[] } {

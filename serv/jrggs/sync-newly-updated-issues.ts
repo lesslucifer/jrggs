@@ -43,8 +43,7 @@ export class SyncNewlyUpdatedIssues {
                             storyPoints: [],
                             defects: [],
                             excluded: false
-                        },
-                        seqSyncAt: null
+                        }
                     }
                 },
                 upsert: true
