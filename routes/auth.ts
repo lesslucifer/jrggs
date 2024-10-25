@@ -119,7 +119,7 @@ export class AuthRouter extends ExpressRouter {
             name: body.name,
             email: body.email,
             password: body.password,
-            roles: []
+            roles: [C.USER_ROLE.USER]
         })
 
         return {

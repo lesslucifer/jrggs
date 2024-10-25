@@ -67,7 +67,7 @@ export class UserRouter extends ExpressRouter {
         }
     }
 
-    @AuthServ.authUser(USER_ROLE.USER)
+    @AuthServ.authUser()
     @ValidBody({
         '+@oldPassword': 'string',
         '+@newPassword': 'string|len>=6',
