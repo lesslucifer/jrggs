@@ -65,22 +65,28 @@ class JiraObjectRouter extends ExpressRouter {
             const projectSprints = await JIRAService.getProjectSprints(project)
             sprints.push(...projectSprints)
         }
-        const bulkOps = sprints.map(sprint => ({
+        const bulkOps = sprints.flatMap(sprint => [{
             updateOne: {
                 filter: { id: sprint.id.toString() },
                 update: {
                     $set: {
                         type: 'sprint',
                         lastUpdatedAt: Date.now(),
-                        fields: {
-                            displayName: sprint.name,
-                            projectCode: sprint.projectKey
-                        }
+                        'fields.displayName': sprint.name
                     }
                 },
                 upsert: true
             }
-        }))
+        }, {
+            updateOne: {
+                filter: { id: sprint.id.toString(), 'fields.projectCode': { $exists: false } },
+                update: {
+                    $set: {
+                        'fields.projectCode': sprint.projectKey
+                    }
+                }
+            }
+        }])
         await JiraObject.bulkWrite(bulkOps)
     }
 
@@ -102,10 +108,12 @@ class JiraObjectRouter extends ExpressRouter {
         '++': false
     })
     async updateJiraObject(@Params('id') id: string, @Body() body: Partial<IJiraObject>) {
-        const result = await JiraObject.updateOne({ id }, { $set: {
-            ...body,
-            lastUpdatedAt: Date.now()
-        } });
+        const result = await JiraObject.updateOne({ id }, {
+            $set: {
+                ...body,
+                lastUpdatedAt: Date.now()
+            }
+        });
         if (result.matchedCount === 0) {
             throw new AppLogicError('Jira object not found', 404);
         }
