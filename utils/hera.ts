@@ -1,7 +1,7 @@
 import { ajvs } from 'ajvs-ts';
 import * as express from 'express';
 import * as glob from 'glob';
-import { GQLU } from 'gql-ts';
+import { GQLBaseType, GQLU } from 'gql-ts';
 import { GQLGlobal } from 'gql-ts';
 import { GQLQuery } from 'gql-ts';
 import _ from 'lodash';
@@ -55,6 +55,11 @@ export class BizLogicError extends Error {
 }
 
 global['BizLogicError'] = BizLogicError
+GQLU.Parsers.unshift((gql, spec, val) => {
+    if (spec.rawType == GQLBaseType.STRING && mongodb.ObjectId.isValid(val)) {
+        return `${val}`;
+    }
+});
 
 export class Hera {
     static readonly INVALID_OBJECTID = mongodb.ObjectId.createFromTime(0)

@@ -23,6 +23,8 @@ export interface ENV_AUTH {
     AUTH_ACCESS_TOKEN_EXPIRES: number;
     AUTH_REFRESH_TOKEN_EXPIRES: number;
     SYS_ADMIN_KEY: string;
+    GOOGLE_CLIENT_ID: string;
+    GOOGLE_CLIENT_SECRET: string;
 }
 
 const ajvEnvAuthConfig = {

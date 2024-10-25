@@ -16,7 +16,7 @@ class JiraIssueRouter extends ExpressRouter {
         'tags': ['Jira Issues']
     }
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:key/metrics" })
     async getIssueMetrics(@Params('key') key: string) {
         const issue = await JiraIssue.findOne({ key });
@@ -28,7 +28,7 @@ class JiraIssueRouter extends ExpressRouter {
         };
     }
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:key" })
     async getIssueByKey(@Params('key') key: string) {
         const issue = await JiraIssue.findOne({ key });

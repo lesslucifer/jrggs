@@ -8,7 +8,7 @@ import { customAlphabet, nanoid } from 'nanoid';
 import { USER_ROLE } from '../glob/cf';
 import ERR from '../glob/err';
 import HC from '../glob/hc';
-import User, { IUser, IUserCompactInfo } from '../models/user.model';
+import User, { IUser, IUserCompactInfo } from '../models/user.mongo';
 import AsyncLockExt, { Locked } from '../utils/async-lock-ext';
 import UserAuth from '../models/user-auth.model';
 import OTP, { OTP_TYPE } from '../models/otp.model';

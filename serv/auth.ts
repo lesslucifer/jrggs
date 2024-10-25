@@ -6,9 +6,10 @@ import hera, { AppLogicError } from '../utils/hera';
 
 import { ExpressRouter, addMiddlewareDecor } from 'express-router-ts';
 import ENV from '../glob/env';
-import { IUser } from '../models/user.model';
+import { IUser } from '../models/user.mongo';
 import _ from 'lodash';
 import { UserServ } from './user';
+import { GoogleAuthService } from './google-auth.serv';
 
 export interface IAuthUserModel {
     getUser(uid: string): Promise<IUser>;
@@ -16,6 +17,7 @@ export interface IAuthUserModel {
 
 export class AuthServ {
     static readonly authenticator: IAuthenticator = new JWTAuth(ENV.AUTH_SECRECT_KEY, ENV.AUTH_ACCESS_TOKEN_EXPIRES, ENV.AUTH_REFRESH_TOKEN_EXPIRES);
+    static readonly googleAuthService = new GoogleAuthService();
 
     static authSysAdmin() {
         return addMiddlewareDecor(async (req: express.Request) => {

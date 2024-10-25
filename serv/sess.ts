@@ -1,6 +1,6 @@
 import * as express from 'express';
 import * as uuid from 'uuid';
-import { IUser } from '../models/user.model';
+import { IUser } from '../models/user.mongo';
 
 interface IReqSession {
     authRequired?: boolean;

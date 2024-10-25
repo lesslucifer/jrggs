@@ -19,12 +19,15 @@ export interface IUser extends IUserCompactInfo {
 
 const User = MongoModel.createCollection<IUser>('user', {
     indexes: [
-        { name: 'phone', index: { phone: 1 }, opts: { unique: true } },
-        { name: 'email', index: { email: 'hashed' } },
+        { name: 'email_1_unique', index: { email: 1 }, opts: { unique: true } },
         { name: 'createdAt', index: { createdAt: 1 } },
         { name: 'updatedAt', index: { updatedAt: 1 } },
         { name: 'roles', index: { roles: 1 } },
         { name: 'isBlocked', index: { isBlocked: 1 } },
+    ],
+    dropIndexes: [
+        'phone',
+        'email_hashed_unique'
     ]
 });
 

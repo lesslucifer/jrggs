@@ -7,11 +7,12 @@ import hera, { AppLogicError } from '../utils/hera';
 
 import { Body, ExpressRouter, GET, POST, PUT, Params, Req } from 'express-router-ts';
 import moment from 'moment';
-import User, { IUser } from '../models/user.model';
+import User, { IUser } from '../models/user.mongo';
 import AuthServ from '../serv/auth';
 import { ValidBody, Caller } from '../utils/decors';
 import { OTP_TYPE } from '../models/otp.model';
 import { UserServ } from '../serv/user';
+import { nanoid } from 'nanoid';
 
 export class AuthRouter extends ExpressRouter {
     @ValidBody({
@@ -48,6 +49,7 @@ export class AuthRouter extends ExpressRouter {
 
         return {
             ...token,
+            uid: user._id.toHexString(),
             roles: user.roles
         }
     }
@@ -85,6 +87,7 @@ export class AuthRouter extends ExpressRouter {
 
         return {
             ...tokens,
+            uid: user._id.toHexString(),
             roles: user.roles
         };
     }
@@ -169,7 +172,50 @@ export class AuthRouter extends ExpressRouter {
 
         return {
             ...token,
+            uid: user._id.toHexString(),
             roles: user.roles
+        }
+    }
+
+
+
+    @POST({ path: '/google' })
+    @ValidBody({
+        '+@code': 'string',
+        '++': false
+    })
+    async googleAuth(@Req() req: express.Request, @Body('code') code: string) {
+        try {
+            // Verify the code with Google and get user info
+            const googleUser = await AuthServ.googleAuthService.verifyGoogleCode(code);
+
+            // Check if the user exists in our database
+            let user = await User.findOne({ email: googleUser.email });
+
+            if (!user) {
+                // If the user doesn't exist, create a new user
+                const newUserId = await UserServ.registerNewUser({
+                    name: googleUser.name,
+                    email: googleUser.email,
+                    password: nanoid(), // Set a random password for Google users
+                    roles: [] // Assign default roles as needed
+                });
+                user = await User.findOne({ email: googleUser.email });
+            }
+
+            // Generate tokens
+            const token = await AuthServ.authenticator.genTokens({
+                id: user._id.toHexString(),
+                scope: '*'
+            });
+
+            return {
+                ...token,
+                uid: user._id.toHexString(),
+                roles: user.roles
+            };
+        } catch (error) {
+            throw new AppLogicError('Google authentication failed', 400);
         }
     }
 }

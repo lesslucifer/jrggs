@@ -6,13 +6,14 @@ import JiraIssue, { IJiraIssue, IJiraIssueMetrics } from "../models/jira-issue.m
 import { AppLogicError } from "../utils/hera";
 import { JiraIssueData } from "../serv/jira";
 import AuthServ from "../serv/auth";
+import { USER_ROLE } from "../glob/cf";
 
 class JiraIssueRouter extends ExpressRouter {
     document = {
         'tags': ['Reports']
     }
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: '/overall'})
     async getOverallReport(@Query() query: any): Promise<IJiraIssueReportRecord[]> {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
@@ -41,7 +42,7 @@ class JiraIssueRouter extends ExpressRouter {
         })
     }
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: '/devReviews'})
     async getDevReviewsReport(@Query() query: any) {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])

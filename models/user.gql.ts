@@ -1,7 +1,7 @@
-import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLModel, GQLObject, GQLQuery, GQLResolver, GQLU } from "gql-ts";
+import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLMapper, GQLModel, GQLObject, GQLQuery, GQLResolver, GQLU } from "gql-ts";
 import { USER_ROLE } from "../glob/cf";
 import hera from "../utils/hera";
-import User, { IUser } from "./user.model";
+import User, { IUser } from "./user.mongo";
 
 @GQLObject("user")
 export class GQLUser extends GQLModel<IUser, GQLUser> {

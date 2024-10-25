@@ -13,13 +13,13 @@ import { ObjectId } from 'mongodb';
 import { USER_ROLE } from '../glob/cf';
 import { UserServ } from '../serv/user';
 import { GQLUser } from '../models/user.gql';
-import User, { IUser } from '../models/user.model';
+import User, { IUser } from '../models/user.mongo';
 import AuthServ from '../serv/auth';
 import { Caller, ValidBody } from '../utils/decors';
 
 export class UserRouter extends ExpressRouter {
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: '/me' })
     async getMyProfile(@Caller() user: IUser, @Query() query: any) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLUser);
@@ -53,7 +53,7 @@ export class UserRouter extends ExpressRouter {
         return result;
     }
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @ValidBody({
         '@name': 'string',
         '++': false
@@ -67,7 +67,7 @@ export class UserRouter extends ExpressRouter {
         }
     }
 
-    @AuthServ.authUser()
+    @AuthServ.authUser(USER_ROLE.USER)
     @ValidBody({
         '+@oldPassword': 'string',
         '+@newPassword': 'string|len>=6',
@@ -148,6 +148,16 @@ export class UserRouter extends ExpressRouter {
             throw new AppLogicError('Can not found user! user not found', 400, ERR.OBJECT_NOT_FOUND);
         }
         await User.updateOne({ _id: id }, { $set: { isBlocked: true } });
+    }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @PUT({ path: '/:id/unblock' })
+    async unBlockUser(@Params('id') _id: string) {
+        const id: ObjectId = hera.mObjId(_id);
+        const updateResult = await User.updateOne({ _id: id }, { $set: { isBlocked: false } });
+        if (updateResult.modifiedCount == 0) {
+            throw new AppLogicError('Can not unblock user! user not found', 400, ERR.OBJECT_NOT_FOUND);
+        }
     }
 }
 

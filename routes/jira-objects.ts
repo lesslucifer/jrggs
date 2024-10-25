@@ -84,7 +84,7 @@ class JiraObjectRouter extends ExpressRouter {
         await JiraObject.bulkWrite(bulkOps)
     }
 
-    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @AuthServ.authUser(USER_ROLE.USER, USER_ROLE.ADMIN)
     @GET({ path: "/" })
     @DocGQLResponse(GQLJiraObject)
     async getJiraObjects(@Query() query: Record<string, string>) {
