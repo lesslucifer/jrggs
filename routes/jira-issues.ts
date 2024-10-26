@@ -47,6 +47,21 @@ class JiraIssueRouter extends ExpressRouter {
         };
     }
 
+    @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/:key/history" })
+    async getIssueHistory(@Params('key') key: string) {
+        const issue = await JiraIssue.findOne({ key });
+        const data = new JiraIssueData(issue.data)
+        return {
+            key: issue.key,
+            title: data.summary,
+            type: data.type,
+            severity: data.severity,
+            history: issue.history,
+            changelog: issue.changelog
+        };
+    }
+
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @ValidBody({
         '+@{}storyPoints': 'number|>0'
