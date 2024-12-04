@@ -1,30 +1,38 @@
-FROM node:12-slim AS builder
+# Build stage
+FROM node:22.3.0-alpine AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt install -y \
-    g++ make git python \
-    && yarn global add node-gyp \
-    && rm -rf /var/lib/apt/lists/*
+# Copy package files
+COPY package*.json ./
+COPY yarn.lock ./
 
-ADD package.json yarn.lock /app/
-#package-lock.json
-RUN npm install
+# Install dependencies
+RUN yarn install
 
-ADD . /app
-RUN npm run build
+# Copy source code
+COPY . .
 
-# Step 2: runtime
-FROM node:12-slim
+# Build the application
+RUN yarn run build
 
-RUN apt-get update && apt install -y net-tools
-ARG NODE_ENV
-ENV NODE_ENV $NODE_ENV
+# Production stage
+FROM node:22.3.0-alpine
 
 WORKDIR /app
 
-COPY --from=builder /app .
+# Copy package files
+COPY package*.json ./
+COPY yarn.lock ./
 
-EXPOSE 3000
+# Install production dependencies only
+RUN yarn install --only=production
 
-CMD ["npm", "run", "serve"]
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Set NODE_ENV
+ENV NODE_ENV=production
+
+# Start the application
+CMD ["yarn", "serve"]

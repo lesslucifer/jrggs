@@ -11,7 +11,7 @@
     "build": "npm run build-ts",
     "serve": "node dist/app.js",
     "watch": "tsc-watch --onSuccess \"node --inspect ./dist/app.js\"",
-    "build-ts": "tsc",
+    "build-ts": "tsc -b",
     "watch-ts": "tsc -w",
     "debug": "tsc-watch --onSuccess \"node --inspect ./dist/app.js\"",
     "serve-debug": "node --inspect dist/app.js",
