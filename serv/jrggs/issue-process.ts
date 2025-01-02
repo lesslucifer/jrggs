@@ -144,6 +144,10 @@ export class IssueProcessorService {
         iss.metrics = metrics
         update.$set = { ...update.$set, metrics }
 
+        const sprintIds = this.computeIssueSprintIds(iss)
+        iss.sprintIds = sprintIds
+        update.$set = { ...update.$set, sprintIds }
+
         return update
     }
 
@@ -275,6 +279,26 @@ export class IssueProcessorService {
             }
             return metrics
         }, {} as IJiraIssueUserMetrics)
+    }
+
+    private static computeIssueSprintIds(iss: IJiraIssue): number[] {
+        const sprintIds = new Set<number>()
+        
+        for (const log of iss.changelog) {
+            const sprintItems = log.items?.filter(item => item.field === 'Sprint' && item.to) ?? [];
+            for (const item of sprintItems) {
+                const ids = item.to.split(',')
+                    .map(id => parseInt(id.trim()))
+                    .filter(id => !isNaN(id));
+                ids.forEach(id => sprintIds.add(id));
+            }
+        }
+
+        if (iss.completedSprint?.id) {
+            sprintIds.add(iss.completedSprint.id);
+        }
+    
+        return _.sortBy(Array.from(sprintIds));
     }
 }
 

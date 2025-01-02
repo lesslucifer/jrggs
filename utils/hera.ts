@@ -1,7 +1,7 @@
 import { ajvs } from 'ajvs-ts';
 import * as express from 'express';
 import * as glob from 'glob';
-import { GQLBaseType, GQLU } from 'gql-ts';
+import { GQLBaseType, GQLU, IGQLModelClass } from 'gql-ts';
 import { GQLGlobal } from 'gql-ts';
 import { GQLQuery } from 'gql-ts';
 import _ from 'lodash';
@@ -335,7 +335,7 @@ export class Hera {
         }
     }
 
-    gqlMongoQueryPagination<T>(gqlModel: Function, gqlQuery: GQLQuery, mgCollection: mongodb.Collection<T>, mgQuery: any, opts?: IGQLMGQueryPaginationOpts): Promise<Partial<T>[]> {
+    gqlMongoQueryPagination<T>(gqlModel: IGQLModelClass<any, any>, gqlQuery: GQLQuery<any>, mgCollection: mongodb.Collection<T>, mgQuery: any, opts?: IGQLMGQueryPaginationOpts): Promise<Partial<T>[]> {
         const gql = GQLGlobal;
         const spec = GQLGlobal.get(gqlModel);
         _.keys(gqlQuery.pagination.from)
@@ -360,7 +360,7 @@ export class Hera {
 
         const sort = gqlQuery.sort;
         if (!hera.isEmpty(sort)) {
-            cursor.sort(this.arrToObj(sort.fields, f => f.field, f => f.OrderNumber));
+            cursor.sort(this.arrToObj(sort.fields, f => f.field as string, f => f.OrderNumber));
         }
 
         const defLimit = (opts && opts.defaultLimit) || 100;

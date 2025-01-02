@@ -25,8 +25,9 @@ export class UserRouter extends ExpressRouter {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLUser);
         GQLU.whiteListFilter(q);
         q.filter.add(new GQLFieldFilter('_id', user._id.toHexString()));
+        q.options.one = true
 
-        const [me] = await q.resolve();
+        const me = await q.resolve() as GQLUser;
         return me;
     }
 

@@ -85,6 +85,7 @@ export interface IJiraIssue extends IMongoDocument {
     completedAt?: number;
     completedSprint?: IJiraIssueSprint;
     metrics: IJiraIssueUserMetrics;
+    sprintIds?: number[];
     
     extraData?: {
         storyPoints?: {
@@ -99,6 +100,7 @@ export interface IJiraIssue extends IMongoDocument {
         excluded?: boolean;
         rejections?: IJiraRejection[];
         codeReviews?: IJiraCodeReview[];
+        estSP?: number;
     }
 
     lastSyncAt: number;
@@ -114,7 +116,8 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'syncStatus-1', index: { syncStatus: 1, _id: -1 } },
         { name: 'completedAt-1', index: { completedAt: -1 } },
         { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
-        { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } }
+        { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } },
+        { name: 'sprintIds', index: { sprintIds: 1 } }
     ]
 })
 

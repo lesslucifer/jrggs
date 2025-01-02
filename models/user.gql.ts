@@ -26,7 +26,7 @@ export class GQLUser extends GQLModel<IUser, GQLUser> {
     }
 
     @GQLResolver({ matches: GQLU.byFields([], ['_id', 'email', 'roles', 'isBlocked']) })
-    static async rootResolve(query: GQLQuery) {
+    static async rootResolve(query: GQLQuery<GQLUser>) {
         const ids = query.filter.get('_id').batch<string>().map(id => hera.mObjId(id, false));
         const emails = query.filter.get('email').batch<string>();
         const roles = query.filter.get('roles').batch<string>();

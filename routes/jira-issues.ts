@@ -196,6 +196,37 @@ class JiraIssueRouter extends ExpressRouter {
         return overrides;
     }
 
+    @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/sprint/:sprintId" })
+    async getIssuesBySprint(@Params('sprintId') sprintId: string) {
+        const sprintIdNum = parseInt(sprintId);
+
+        const issues = await JiraIssue.find({
+            sprintIds: sprintIdNum,
+            'data.fields.issuetype.name': { $ne: 'Sub-task' },
+            'extraData.excluded': { $ne: true }
+        }).toArray();
+
+        return issues.map(issue => {
+            const data = new JiraIssueData(issue.data);
+            return {
+                key: issue.key,
+                title: data.summary,
+                type: data.type,
+                severity: data.severity,
+                storyPoints: data.storyPoint,
+                estSP: data.estSP,
+                extraData: issue.extraData ?? {},
+                metrics: issue.metrics,
+                completedAt: issue.completedAt,
+                completedSprint: issue.completedSprint,
+                status: data.status,
+                sprintIds: issue.sprintIds,
+                syncStatus: issue.syncStatus,
+            };
+        });
+    }
+
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/:key/sync-status/PENDING" })
     async updateSyncStatusToPending(@Params('key') key: string) {

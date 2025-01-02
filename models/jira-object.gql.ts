@@ -27,7 +27,7 @@ export class GQLJiraObject extends GQLModel<IJiraObject, GQLJiraObject> {
     }
 
     @GQLResolver({ matches: GQLU.byFields([], ['id', 'type', 'query']) })
-    static async rootResolve(query: GQLQuery) {
+    static async rootResolve(query: GQLQuery<GQLJiraObject>) {
         const ids = query.filter.get('id').batch<string>();
         const types = query.filter.get('type').batch<string>();
         const textQuery = query.filter.get('query').first();
