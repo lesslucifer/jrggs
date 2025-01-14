@@ -72,7 +72,9 @@ class JiraObjectRouter extends ExpressRouter {
                     $set: {
                         type: 'sprint',
                         lastUpdatedAt: Date.now(),
-                        'fields.displayName': sprint.name
+                        'fields.displayName': sprint.name,
+                        'fields.startDate': sprint.startDate,
+                        'fields.endDate': sprint.endDate,
                     }
                 },
                 upsert: true

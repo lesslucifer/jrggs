@@ -197,12 +197,12 @@ class JiraIssueRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
-    @GET({ path: "/sprint/:sprintId" })
-    async getIssuesBySprint(@Params('sprintId') sprintId: string) {
-        const sprintIdNum = parseInt(sprintId);
+    @GET({ path: "/sprint/:sprintIds" })
+    async getIssuesBySprint(@Params('sprintIds') sprintIds: string) {
+        const sprintIdNums = sprintIds.split(',').map(id => parseInt(id.trim()));
 
         const issues = await JiraIssue.find({
-            sprintIds: sprintIdNum,
+            sprintIds: { $in: sprintIdNums },
             'data.fields.issuetype.name': { $ne: 'Sub-task' },
             'extraData.excluded': { $ne: true }
         }).toArray();
@@ -220,6 +220,7 @@ class JiraIssueRouter extends ExpressRouter {
                 metrics: issue.metrics,
                 completedAt: issue.completedAt,
                 completedSprint: issue.completedSprint,
+                inChargeDevs: issue.inChargeDevs,
                 status: data.status,
                 sprintIds: issue.sprintIds,
                 syncStatus: issue.syncStatus,

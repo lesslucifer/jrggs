@@ -63,6 +63,7 @@ export interface IJiraIssueComment {
 }
 
 export interface IJiraIssueHistoryRecord {
+    field?: string;
     assigneeId: string;
     assigneeName?: string;
     status: string;
@@ -86,6 +87,7 @@ export interface IJiraIssue extends IMongoDocument {
     completedSprint?: IJiraIssueSprint;
     metrics: IJiraIssueUserMetrics;
     sprintIds?: number[];
+    inChargeDevs?: string[];
     
     extraData?: {
         storyPoints?: {

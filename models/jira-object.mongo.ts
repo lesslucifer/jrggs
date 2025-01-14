@@ -12,6 +12,8 @@ export interface IJiraObject extends IMongoDocument {
         role?: string;
         color?: string;
         projectCode?: string;
+        startDate?: string;
+        endDate?: string;
 
         [key: string]: string;
     }

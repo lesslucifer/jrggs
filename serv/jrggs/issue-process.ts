@@ -3,7 +3,7 @@ import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
-import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, IJiraUserInfo, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
@@ -124,6 +124,10 @@ export class IssueProcessorService {
             update.$set = { ...update.$set, history: history, current: _.last(history) }
         }
 
+        const inChargeDevs = this.computeInChargeDevs(iss)
+        iss.inChargeDevs = inChargeDevs
+        update.$set = { ...update.$set, inChargeDevs }
+
         const { codeReviews, rejections } = this.computeCodeReviewsAndRejections(iss, overrides)
         iss.extraData = {
             ...iss.extraData,
@@ -151,6 +155,23 @@ export class IssueProcessorService {
         return update
     }
 
+    private static computeInChargeDevs(iss: IJiraIssue, overrides?: IJiraIssueOverrides): string[] {
+        const assignees = new Set<string>()
+
+        for (const log of iss.changelog) {
+            const isActive = !overrides?.invalidChangelogIds?.[log.id]
+            const author = JiraObjectServ.get(log.author.accountId)
+
+            if (isActive && log.items?.some(item => item.field === 'status' && ['code review', 'in progress'].some(status => item.toString.toLowerCase().includes(status)))) {
+                assignees.add(log.author.accountId)
+            }
+        }
+        
+        assignees.add(iss.data.fields.assignee?.accountId)
+
+        return Array.from(assignees)
+    }
+
     private static computeIssueHistoryRecords(changelogs: IJiraIssueChangelogRecord[], current?: IJiraIssueHistoryRecord): IJiraIssueHistoryRecord[] {
         const history: IJiraIssueHistoryRecord[] = [];
         let lastRecord: IJiraIssueHistoryRecord | undefined = current
@@ -166,16 +187,16 @@ export class IssueProcessorService {
                     case 'assignee':
                         update.assigneeId = item.to || undefined;
                         update.assigneeName = item.toString || undefined;
+                        update.field = item.field;
                         break;
                     case 'status':
                         update.status = item.toString || '';
-                        break;
-                    case 'Story Points':
-                        update.storyPoints = item.toString ? Number(item.toString) : undefined;
+                        update.field = item.field;
                         break;
                     case 'Sprint':
                         update.sprintId = Number(_.last(item.to?.split(','))?.trim()) || undefined;
                         update.sprintName = _.last(item.toString?.split(','))?.trim() || undefined;
+                        update.field = item.field;
                         break;
                     default:
                         break;
