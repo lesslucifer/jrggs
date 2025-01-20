@@ -156,20 +156,19 @@ export class IssueProcessorService {
     }
 
     private static computeInChargeDevs(iss: IJiraIssue, overrides?: IJiraIssueOverrides): string[] {
-        const assignees = new Set<string>()
+        const assignees = new Map<string, number>()
 
         for (const log of iss.changelog) {
             const isActive = !overrides?.invalidChangelogIds?.[log.id]
-            const author = JiraObjectServ.get(log.author.accountId)
 
             if (isActive && log.items?.some(item => item.field === 'status' && ['code review', 'in progress'].some(status => item.toString.toLowerCase().includes(status)))) {
-                assignees.add(log.author.accountId)
+                assignees.set(log.author.accountId, new Date(log.created).getTime())
             }
         }
         
-        assignees.add(iss.data.fields.assignee?.accountId)
+        assignees.set(iss.data.fields.assignee?.accountId, Date.now())
 
-        return Array.from(assignees)
+        return _.sortBy(Array.from(assignees.entries()), (a) => a[1]).map(a => a[0])
     }
 
     private static computeIssueHistoryRecords(changelogs: IJiraIssueChangelogRecord[], current?: IJiraIssueHistoryRecord): IJiraIssueHistoryRecord[] {
