@@ -7,33 +7,53 @@ import { IJiraIssueComment } from '../models/jira-issue.mongo';
 export class JIRAService {
     static async queryJiraIssues(jql: string) {
         const issues: JiraIssueData[] = [];
-        let totalIssues = 0;
-        let startAt = 0;
+        let nextPageToken: string | undefined;
+        let pageCount = 0;
+        const MAX_PAGES = 1000;
 
         while (true) {
-            const query = Object.entries({
-                'jql': jql,
-                'maxResults': 100,
-                'startAt': startAt
-            }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-            const url = `${ENV.JIRA_HOST}/rest/api/latest/search?${query}`;
-            const resp = await axios.get(url, {
-                headers: {
-                    'Authorization': ENV.JIRA_TOKEN
-                }
-            });
-
-            const fetchedIssues: JiraIssueData[] = (resp.data?.issues ?? []).map((iss: any) => new JiraIssueData(iss));
-            issues.push(...fetchedIssues);
-            totalIssues = resp.data.total;
-
-            if (fetchedIssues.length === 0 || startAt + fetchedIssues.length >= totalIssues) {
+            pageCount++;
+            if (pageCount > MAX_PAGES) {
+                console.error(`[queryJiraIssues] Max pages reached for JQL: ${jql}`);
                 break;
             }
 
-            startAt += fetchedIssues.length;
+            try {
+                const body: Record<string, any> = {
+                    jql: jql,
+                    maxResults: 100
+                };
+
+                if (nextPageToken) {
+                    body.nextPageToken = nextPageToken;
+                }
+
+                const url = `${ENV.JIRA_HOST}/rest/api/3/search/jql`;
+                const resp = await axios.post(url, body, {
+                    headers: {
+                        'Authorization': ENV.JIRA_TOKEN,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 30000
+                });
+
+                const fetchedIssues: JiraIssueData[] = (resp.data?.issues ?? []).map((iss: any) => new JiraIssueData(iss));
+
+                console.log(`[queryJiraIssues] Page ${pageCount}: fetched ${fetchedIssues.length} issues`);
+                issues.push(...fetchedIssues);
+
+                nextPageToken = resp.data?.nextPageToken;
+
+                if (fetchedIssues.length === 0 || !nextPageToken) {
+                    break;
+                }
+            } catch (error: any) {
+                console.error(`[queryJiraIssues] Error on page ${pageCount}:`, error.message);
+                throw error;
+            }
         }
 
+        console.log(`[queryJiraIssues] Total issues fetched: ${issues.length}`);
         return issues;
     }
 
@@ -139,7 +159,7 @@ export class JIRAService {
     }
 
     static async getIssueChangelog(issueKey: string, startAt: number = 0): Promise<IJiraIssueChangelogRecord[]> {
-        const url = `${ENV.JIRA_HOST}/rest/api/latest/issue/${issueKey}/changelog`;
+        const url = `${ENV.JIRA_HOST}/rest/api/3/issue/${issueKey}/changelog`;
         const MAX_RESULTS = 100;
         let allChangelogs: any[] = [];
         let currentStartAt = startAt;
@@ -172,7 +192,7 @@ export class JIRAService {
     }
 
     static async getIssueComments(issueKey: string, startAt: number = 0): Promise<IJiraIssueComment[]> {
-        const url = `${ENV.JIRA_HOST}/rest/api/latest/issue/${issueKey}/comment`;
+        const url = `${ENV.JIRA_HOST}/rest/api/3/issue/${issueKey}/comment`;
         const MAX_RESULTS = 100;
         let allComments: any[] = [];
         let currentStartAt = startAt;
