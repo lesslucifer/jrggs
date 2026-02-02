@@ -10,12 +10,13 @@ export class HC {
     static readonly FIRST_DAY = moment([2010, 1, 1]);
     static readonly HUMAN32_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
+    static readonly SYNC_ISSUES_LAST_UPDATE_TIME_KEY_PREFIX = 'SyncIssues_lastUpdateTime_4'
     static readonly SYNC_ISSUES_DEFAULT_LAST_UPDATE_TIME = moment([2024, 1, 1]).startOf('year').valueOf()
 
     static readonly OTP_EXPIRATION_SECS = 5 * 60
 
-    static readonly JIRA_ISSUE_PROCESS_LIMIT = 50
-    static readonly JIRA_PROJECT_KEYS = ['WFORD', 'MBL6']
+    static readonly JIRA_ISSUE_PROCESS_LIMIT = 5
+    static readonly JIRA_PROJECT_KEYS = ['MBL6']
 }
 
 export default HC;

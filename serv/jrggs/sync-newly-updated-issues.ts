@@ -12,6 +12,7 @@ export class SyncNewlyUpdatedIssues {
     @Locked(() => 'SyncIssues')
     @Catch(err => console.log(err))
     static async process(): Promise<void> {
+        console.log("[SyncNewlyUpdatedIssues] Starting sync", Date.now())
         for (const projectKey of HC.JIRA_PROJECT_KEYS) {
             await this.syncProject(projectKey)
         }
@@ -19,10 +20,12 @@ export class SyncNewlyUpdatedIssues {
     }
 
     static async syncProject(projectKey: string): Promise<void> {
-        const lastUpdateTimeConfig = await AppConfig.findOne({ key: `SyncIssues_lastUpdateTime_${projectKey}` })
+        const lastUpdateTimeConfig = await AppConfig.findOne({ key: `${HC.SYNC_ISSUES_LAST_UPDATE_TIME_KEY_PREFIX}_${projectKey}` })
         const lastUpdateTime = lastUpdateTimeConfig?.value as number || HC.SYNC_ISSUES_DEFAULT_LAST_UPDATE_TIME
 
-        const issues = await JIRAService.getProjectIssues(projectKey, lastUpdateTime, 100)
+        console.log("[SyncIssues] Syncing project", projectKey, lastUpdateTime)
+
+        const issues = await JIRAService.getProjectIssues(projectKey, lastUpdateTime, 500)
 
         if (issues.length === 0) {
             return;
@@ -63,7 +66,7 @@ export class SyncNewlyUpdatedIssues {
 
         if (newTimestamp > lastUpdateTime) {
             await AppConfig.updateOne(
-                { key: `SyncIssues_lastUpdateTime_${projectKey}` },
+                { key: `${HC.SYNC_ISSUES_LAST_UPDATE_TIME_KEY_PREFIX}_${projectKey}` },
                 { $set: { value: newTimestamp } },
                 { upsert: true }
             );

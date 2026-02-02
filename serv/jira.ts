@@ -24,7 +24,7 @@ export class JIRAService {
 
             try {
                 const body: Record<string, any> = {
-                    jql: jql,
+                    jql: `${jql} ORDER BY updated ASC`,
                     maxResults: 100,
                     fields: ['*all']
                 };
@@ -231,8 +231,13 @@ export class JIRAService {
         return allComments;
     }
 
-    static async updateDevInCharge(issueKey: string, accountId: string): Promise<void> {
+    static async updateDevInChargeIfPossible(issueKey: string, accountId: string, issueData: any): Promise<void> {
         if (!accountId) {
+            return;
+        }
+
+        const currentDevInCharge = issueData?.fields?.customfield_13880;
+        if (currentDevInCharge?.accountId) {
             return;
         }
 
