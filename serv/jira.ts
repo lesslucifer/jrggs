@@ -5,7 +5,7 @@ import { IJiraIssueChangelogRecord } from '../models/jira-issue.mongo';
 import { IJiraIssueComment } from '../models/jira-issue.mongo';
 
 export class JIRAService {
-    static async queryJiraIssues(jql: string) {
+    static async queryJiraIssues(jql: string, maxIssues: number = 10000) {
         const issues: JiraIssueData[] = [];
         let nextPageToken: string | undefined;
         let pageCount = 0;
@@ -18,10 +18,15 @@ export class JIRAService {
                 break;
             }
 
+            if (issues.length >= maxIssues) {
+                break;
+            }
+
             try {
                 const body: Record<string, any> = {
                     jql: jql,
-                    maxResults: 100
+                    maxResults: 100,
+                    fields: ['*all']
                 };
 
                 if (nextPageToken) {
@@ -40,7 +45,9 @@ export class JIRAService {
                 const fetchedIssues: JiraIssueData[] = (resp.data?.issues ?? []).map((iss: any) => new JiraIssueData(iss));
 
                 console.log(`[queryJiraIssues] Page ${pageCount}: fetched ${fetchedIssues.length} issues`);
-                issues.push(...fetchedIssues);
+
+                const remainingSlots = maxIssues - issues.length;
+                issues.push(...fetchedIssues.slice(0, remainingSlots));
 
                 nextPageToken = resp.data?.nextPageToken;
 
@@ -57,12 +64,12 @@ export class JIRAService {
         return issues;
     }
 
-    static getSprintIssues(sprint: string, lastUpdateTime: number = 0) {
-        return this.queryJiraIssues(`sprint = ${sprint} AND updated > ${lastUpdateTime}`)
+    static getSprintIssues(sprint: string, lastUpdateTime: number = 0, maxIssues?: number) {
+        return this.queryJiraIssues(`sprint = ${sprint} AND updated > ${lastUpdateTime}`, maxIssues)
     }
 
-    static getProjectIssues(projectKey: string, lastUpdateTime: number) {
-        return this.queryJiraIssues(`project = ${projectKey} AND updated > ${lastUpdateTime}`)
+    static getProjectIssues(projectKey: string, lastUpdateTime: number, maxIssues?: number) {
+        return this.queryJiraIssues(`project = ${projectKey} AND updated > ${lastUpdateTime}`, maxIssues)
     }
 
     static getSprintInfo(sprintId: number) {

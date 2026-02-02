@@ -5,7 +5,7 @@ import AppConfig from "../../models/app-config";
 import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import { Locked } from "../../utils/async-lock-ext";
 import { Catch } from "../../utils/decors";
-import { JIRAService } from "../jira";
+import { JIRAService, JiraIssueData } from "../jira";
 import { IssueProcessorService } from "./issue-process";
 
 export class SyncNewlyUpdatedIssues {
@@ -21,8 +21,14 @@ export class SyncNewlyUpdatedIssues {
     static async syncProject(projectKey: string): Promise<void> {
         const lastUpdateTimeConfig = await AppConfig.findOne({ key: `SyncIssues_lastUpdateTime_${projectKey}` })
         const lastUpdateTime = lastUpdateTimeConfig?.value as number || HC.SYNC_ISSUES_DEFAULT_LAST_UPDATE_TIME
-        const issues = await JIRAService.getProjectIssues(projectKey, lastUpdateTime)
-        if (issues.length === 0) return
+
+        const issues = await JIRAService.getProjectIssues(projectKey, lastUpdateTime, 100)
+
+        if (issues.length === 0) {
+            return;
+        }
+
+        console.log(`[SyncIssues] Syncing ${issues.length} issues for ${projectKey}`);
 
         const bulkOps: AnyBulkWriteOperation<IJiraIssue>[] = issues.map(issue => ({
             updateOne: {
@@ -51,7 +57,37 @@ export class SyncNewlyUpdatedIssues {
         }));
 
         await JiraIssue.bulkWrite(bulkOps);
-        await AppConfig.updateOne({ key: `SyncIssues_lastUpdateTime_${projectKey}` }, { $set: { value: Date.now() } }, { upsert: true })
+
+        const oldestTimestamp = this.extractOldestUpdateTimestamp(issues);
+        const newTimestamp = oldestTimestamp + 1;
+
+        if (newTimestamp > lastUpdateTime) {
+            await AppConfig.updateOne(
+                { key: `SyncIssues_lastUpdateTime_${projectKey}` },
+                { $set: { value: newTimestamp } },
+                { upsert: true }
+            );
+        }
+    }
+
+    private static extractOldestUpdateTimestamp(issues: JiraIssueData[]): number | null {
+        let oldestTimestamp = 0
+
+        for (const issue of issues) {
+            try {
+                const updatedStr = issue.data?.fields?.updated;
+                if (updatedStr) {
+                    const timestamp = new Date(updatedStr).getTime();
+                    if (!isNaN(timestamp) && timestamp > oldestTimestamp) {
+                        oldestTimestamp = timestamp
+                    }
+                }
+            } catch (err) {
+                console.warn(`[SyncIssues] Failed to parse updated timestamp for ${issue.key}:`, err);
+            }
+        }
+
+        return oldestTimestamp
     }
 }
 
