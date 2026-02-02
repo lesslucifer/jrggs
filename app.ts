@@ -11,6 +11,9 @@ import terminate from './serv/terminate';
 import createSesssionObject from './serv/sess';
 import _ from 'lodash';
 import JiraObjectServ from './serv/jira-object.serv';
+import moment = require('moment');
+import './serv/jrggs/sync-newly-updated-issues'
+import './serv/jrggs/issue-process'
 
 export class Program {
     static server: express.Express;
@@ -43,7 +46,7 @@ export class Program {
         await this.setup()
 
         const appServer = await new Promise<Server>(resolve => {
-            resolve(this.server.listen(ENV.HTTP_PORT, () => console.log(`Listen on port ${ENV.HTTP_PORT}...`)))
+            resolve(this.server.listen(ENV.HTTP_PORT, () => console.log(`Listen on port ${ENV.HTTP_PORT}...`, moment().format('YYYY-MM-DD HH:mm:ss.SSS'))))
         });
 
         const exitHandler = terminate(appServer, {

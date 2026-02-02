@@ -7,6 +7,7 @@ import { Locked } from "../../utils/async-lock-ext";
 import { Catch } from "../../utils/decors";
 import { JIRAService, JiraIssueData } from "../jira";
 import { IssueProcessorService } from "./issue-process";
+import moment from "moment";
 
 export class SyncNewlyUpdatedIssues {
     @Locked(() => 'SyncIssues')
@@ -94,4 +95,7 @@ export class SyncNewlyUpdatedIssues {
     }
 }
 
-schedule.scheduleJob('0 * * * * *', () => SyncNewlyUpdatedIssues.process().catch((err) => console.error(err)));
+schedule.scheduleJob('0 * * * * *', () => {
+    console.log("SYNC_NEWLY_UPDATED_ISSUES_SCHEDULE at", moment().format('YYYY-MM-DD HH:mm:ss.SSS'))
+    SyncNewlyUpdatedIssues.process().catch((err) => console.error(err))
+});

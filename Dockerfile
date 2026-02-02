@@ -34,5 +34,9 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder_prod /app/node_modules ./node_modules
 
 ENV NODE_ENV=production
+ENV TZ=Asia/Ho_Chi_Minh
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
 
 CMD ["yarn", "serve"]
