@@ -117,7 +117,7 @@ export class IssueProcessorService {
                 }
             }
         }
-        
+
         if (doesRefreshHistory) {
             const history = this.computeIssueHistoryRecords(iss.changelog)
             iss.history = history
@@ -125,8 +125,15 @@ export class IssueProcessorService {
         }
 
         const inChargeDevs = this.computeInChargeDevs(iss)
+        const previousInChargeDev = _.last(iss.inChargeDevs)
+        const newInChargeDev = _.last(inChargeDevs)
+
         iss.inChargeDevs = inChargeDevs
         update.$set = { ...update.$set, inChargeDevs }
+
+        if (newInChargeDev && newInChargeDev !== previousInChargeDev) {
+            await JIRAService.updateDevInCharge(iss.key, newInChargeDev)
+        }
 
         const { codeReviews, rejections } = this.computeCodeReviewsAndRejections(iss, overrides)
         iss.extraData = {

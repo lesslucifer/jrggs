@@ -203,7 +203,7 @@ export class JIRAService {
         const MAX_RESULTS = 100;
         let allComments: any[] = [];
         let currentStartAt = startAt;
-        
+
         while (true) {
             const resp = await axios.get(url, {
                 params: {
@@ -214,21 +214,51 @@ export class JIRAService {
                     'Authorization': ENV.JIRA_TOKEN
                 }
             });
-            
+
             const fetchedComments = resp.data.comments || [];
             if (fetchedComments?.length > 0) {
                 allComments.push(...fetchedComments);
             }
-            
+
             // Check if we've fetched all comments
             if (fetchedComments.length < MAX_RESULTS || !resp.data.isLast === false) {
                 break;
             }
-            
+
             currentStartAt += fetchedComments.length;
         }
-        
+
         return allComments;
+    }
+
+    static async updateDevInCharge(issueKey: string, accountId: string): Promise<void> {
+        if (!accountId) {
+            return;
+        }
+
+        const url = `${ENV.JIRA_HOST}/rest/api/3/issue/${issueKey}`;
+
+        try {
+            await axios.put(url, {
+                fields: {
+                    customfield_13880: {
+                        accountId: accountId
+                    }
+                }
+            }, {
+                headers: {
+                    'Authorization': ENV.JIRA_TOKEN,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                timeout: 30000
+            });
+
+            console.log(`[updateDevInCharge] Successfully updated ${issueKey} with accountId: ${accountId}`);
+        } catch (error: any) {
+            console.error(`[updateDevInCharge] Failed to update ${issueKey}:`, error.response?.data || error.message);
+            throw error;
+        }
     }
 }
 
