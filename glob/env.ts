@@ -44,11 +44,15 @@ export interface ENV_CONFIG extends ENV_DB_CONFIG, ENV_AUTH {
     NAME: string;
     HTTP_PORT: number;
     LOG_LEVEL: string;
-    
+
     GG_KEY_FILE: string;
 
     JIRA_HOST: string
     JIRA_TOKEN: string
+
+    BITBUCKET_API_BASE: string
+    BITBUCKET_API_TOKEN: string
+    BITBUCKET_USERNAME: string
 }
 
 const ajvEnvConfig = ajv.compile({
@@ -57,6 +61,9 @@ const ajvEnvConfig = ajv.compile({
     '+@GG_KEY_FILE': 'string',
     '+@JIRA_HOST': 'string',
     '+@JIRA_TOKEN': 'string',
+    '+@BITBUCKET_API_BASE': 'string',
+    '+@BITBUCKET_API_TOKEN': 'string',
+    '+@BITBUCKET_USERNAME': 'string',
     '@LOG_LEVEL': 'string',
     ...ajvEnvDbConfig,
     ...ajvEnvAuthConfig

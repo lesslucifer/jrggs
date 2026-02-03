@@ -11,9 +11,11 @@ import terminate from './serv/terminate';
 import createSesssionObject from './serv/sess';
 import _ from 'lodash';
 import JiraObjectServ from './serv/jira-object.serv';
-import moment = require('moment');
-import './serv/jrggs/sync-newly-updated-issues'
-import './serv/jrggs/issue-process'
+import './serv/jrggs/sync-newly-updated-issues';
+import './serv/jrggs/issue-process';
+import './serv/jrggs/sync-bitbucket-prs';
+import './serv/jrggs/bitbucket-pr-process';
+import moment from 'moment';
 
 export class Program {
     static server: express.Express;

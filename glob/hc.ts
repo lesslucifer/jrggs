@@ -17,6 +17,11 @@ export class HC {
 
     static readonly JIRA_ISSUE_PROCESS_LIMIT = 5
     static readonly JIRA_PROJECT_KEYS = ['MBL6']
+
+    static readonly BITBUCKET_WORKSPACE = 'friartuck'
+    static readonly BITBUCKET_REPO_SLUG = 'mobile-app'
+    static readonly BITBUCKET_PR_PROCESS_LIMIT = 5
+    static readonly SYNC_PRS_DEFAULT_LAST_UPDATE_TIME = moment([2024, 1, 1]).startOf('year').valueOf()
 }
 
 export default HC;
