@@ -1,5 +1,6 @@
 import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
+import _ from 'lodash';
 import HC from "../../glob/hc";
 import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedData } from "../../models/bitbucket-pr.mongo";
 import { AsyncLockExt, Locked } from "../../utils/async-lock-ext";
@@ -21,6 +22,7 @@ export class BitbucketPRProcessorService {
 
         try {
             this.isProcessing = true;
+
             const itemUpdates = await Promise.all(prs.map(pr => this.processPR(pr)));
 
             const bulkOps = itemUpdates.map(update => ({ updateOne: update }));
@@ -97,9 +99,23 @@ export class BitbucketPRProcessorService {
             update.$set = { ...update.$set, commits };
         }
 
-        // Compute derived metrics
-        const computedData = this.computePRMetrics(pr, activity);
-        update.$set = { ...update.$set, computedData };
+        let computedData = this.computePRMetrics(pr, activity);
+
+        let picAccountId = pr.data.author?.account_id;
+
+        if (pr.overrides) {
+            if (pr.overrides.computedData) {
+                computedData = { ...computedData, ...pr.overrides.computedData };
+            }
+
+            if (pr.overrides.picAccountId) {
+                picAccountId = pr.overrides.picAccountId;
+            }
+        }
+
+        const status = pr.status === 'COMPLETED' ? pr.status : pr.data.state
+
+        update.$set = { ...update.$set, computedData, picAccountId, status };
 
         return update;
     }

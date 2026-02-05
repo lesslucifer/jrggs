@@ -126,7 +126,14 @@ export interface IBitbucketPR extends IMongoDocument {
 
     commits: IBitbucketPRCommit[];
 
+    status?: string;
     computedData?: IBitbucketPRComputedData;
+
+    overrides?: {
+        picAccountId?: string;
+        points?: number;
+        computedData?: Partial<IBitbucketPRComputedData>;
+    };
 
     lastSyncAt: number;
     syncStatus: BitbucketPRSyncStatus;

@@ -7,6 +7,7 @@ import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJir
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
+import moment from "moment";
 
 export class IssueProcessorService {
     private static Lock = new AsyncLockExt()
@@ -24,6 +25,7 @@ export class IssueProcessorService {
 
         try {
             this.isProcessing = true
+            console.log("[IssueProcessorService] Processing: ", issues.map(iss => iss.key).join(', '))
             const overrides = await JiraIssueOverrides.find({ key: { $in: issues.map(iss => iss.key) } }).toArray()
             const overridesMap = _.keyBy(overrides, 'key')
             const itemUpdates = await Promise.all(issues.map(iss => this.processIssue(iss, overridesMap[iss.key])))
@@ -330,5 +332,6 @@ export class IssueProcessorService {
 }
 
 schedule.scheduleJob('20 * * * * *', () => {
+    console.log("PROCESS_ISSUE at", moment().format('YYYY-MM-DD HH:mm:ss.SSS'))
     IssueProcessorService.checkToProcess()
 })
