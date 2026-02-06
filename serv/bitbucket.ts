@@ -1,6 +1,7 @@
 import axios from 'axios';
 import ENV from '../glob/env';
-import { IBitbucketPR, IBitbucketPRData, IBitbucketUser } from '../models/bitbucket-pr.mongo';
+import { IBitbucketPRData } from '../models/bitbucket-pr.mongo';
+import moment from 'moment';
 
 export class BitbucketService {
     static async queryPullRequests(workspace: string, repoSlug: string, lastUpdatedTime: number = 0, maxPRs: number = 1000) {
@@ -21,10 +22,12 @@ export class BitbucketService {
             }
 
             try {
+                console.log("[queryPullRequests] lastUpdatedTime", moment(lastUpdatedTime).toISOString())
                 const url = nextPageUrl || `${ENV.BITBUCKET_API_BASE}/repositories/${workspace}/${repoSlug}/pullrequests`;
                 const params = nextPageUrl ? {} : {
                     state: 'ALL',
-                    sort: '-updated_on',
+                    sort: 'updated_on',
+                    q: `updated_on > "${moment(lastUpdatedTime).toISOString()}"`,
                     pagelen: 50
                 };
 

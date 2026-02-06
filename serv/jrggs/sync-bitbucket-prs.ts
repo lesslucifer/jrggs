@@ -21,7 +21,7 @@ export class SyncBitbucketPRs {
     }
 
     static async syncRepository(workspace: string, repoSlug: string): Promise<void> {
-        const configKey = `SyncBitbucketPRs_lastUpdateTime_${workspace}_${repoSlug}`;
+        const configKey = `SyncBitbucketPRs_lastUpdateTime3_${workspace}_${repoSlug}`;
         const lastUpdateTimeConfig = await AppConfig.findOne({ key: configKey });
         const lastUpdateTime = lastUpdateTimeConfig?.value as number || HC.SYNC_PRS_DEFAULT_LAST_UPDATE_TIME;
 
