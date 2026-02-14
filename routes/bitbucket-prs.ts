@@ -1,6 +1,6 @@
 import { Body, ExpressRouter, GET, PUT, DELETE, Params, Query } from "express-router-ts";
 import { USER_ROLE } from "../glob/cf";
-import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPRComputedData } from "../models/bitbucket-pr.mongo";
+import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedData } from "../models/bitbucket-pr.mongo";
 import { AuthServ } from "../serv/auth";
 import { AppLogicError } from "../utils/hera";
 import { BitbucketPRProcessorService } from "../serv/jrggs/bitbucket-pr-process";
@@ -22,26 +22,7 @@ class BitbucketPRRouter extends ExpressRouter {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
         }
 
-        const data = pr.data;
-        return {
-            prId: pr.prId,
-            workspace,
-            repoSlug,
-            data: data,
-            title: data.title,
-            description: data.description,
-            state: data.state,
-            status: pr.status,
-            author: data.author,
-            createdOn: data.created_on,
-            updatedOn: data.updated_on,
-            sourceBranch: data.source.branch.name,
-            destinationBranch: data.destination.branch.name,
-            computedData: pr.computedData,
-            overrides: pr.overrides,
-            syncStatus: pr.syncStatus,
-            lastSyncAt: pr.lastSyncAt
-        };
+        return getPRResponse(pr);
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
@@ -74,28 +55,29 @@ class BitbucketPRRouter extends ExpressRouter {
             .limit(limit)
             .toArray();
 
-        return prs.map(pr => {
-            const data = pr.data;
-            return {
-                prId: pr.prId,
-                workspace,
-                repoSlug,
-                data: data,
-                title: data.title,
-                description: data.description,
-                state: data.state,
-                status: pr.status,
-                author: data.author,
-                createdOn: data.created_on,
-                updatedOn: data.updated_on,
-                sourceBranch: data.source.branch.name,
-                destinationBranch: data.destination.branch.name,
-                computedData: pr.computedData,
-                overrides: pr.overrides,
-                syncStatus: pr.syncStatus,
-                lastSyncAt: pr.lastSyncAt
-            };
-        });
+        return prs.map(pr => getPRResponse(pr));
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/by-jira-issue/:issueKey" })
+    async getPRsByJiraIssue(
+        @Params('issueKey') issueKey: string,
+        @Query('skip') sSkip?: string,
+        @Query('limit') sLimit?: string
+    ) {
+        const normalizedKey = issueKey.toUpperCase();
+        const skip = sSkip ? parseInt(sSkip) : 0;
+        const limit = sLimit ? Math.min(parseInt(sLimit), 500) : 100;
+
+        const prs = await BitbucketPR.find(
+            { linkedJiraIssues: normalizedKey },
+            { sort: { 'data.updated_on': -1 } }
+        )
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+
+        return prs.map(pr => getPRResponse(pr));
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
@@ -169,6 +151,7 @@ class BitbucketPRRouter extends ExpressRouter {
             '@totalDeclines': 'number|>=0',
             '++': false
         },
+        '@linkedJiraIssues': ['string'],
         '++': false
     })
     @PUT({ path: "/:workspace/:repoSlug/:prId/overrides" })
@@ -180,6 +163,7 @@ class BitbucketPRRouter extends ExpressRouter {
             picAccountId?: string;
             points?: number;
             computedData?: Partial<IBitbucketPRComputedData>;
+            linkedJiraIssues?: string[];
         }
     ) {
         const prId = parseInt(sPrId);
@@ -193,6 +177,10 @@ class BitbucketPRRouter extends ExpressRouter {
         }
         if (body.computedData !== undefined) {
             overrideUpdates['overrides.computedData'] = _.omitBy(body.computedData, _.isNil);
+        }
+        if (body.linkedJiraIssues !== undefined) {
+            const normalizedKeys = body.linkedJiraIssues.map(key => key.toUpperCase());
+            overrideUpdates['overrides.linkedJiraIssues'] = normalizedKeys;
         }
 
         const pr = await BitbucketPR.findOneAndUpdate(
@@ -238,4 +226,27 @@ class BitbucketPRRouter extends ExpressRouter {
     }
 }
 
-export default new BitbucketPRRouter();
+export default new BitbucketPRRouter();export function getPRResponse(pr: IBitbucketPR) {
+    const data = pr.data;
+    return {
+        prId: pr.prId,
+        workspace: pr.workspace,
+        repoSlug: pr.repoSlug,
+        data: data,
+        title: data.title,
+        description: data.description,
+        state: data.state,
+        status: pr.status,
+        author: data.author,
+        createdOn: data.created_on,
+        updatedOn: data.updated_on,
+        sourceBranch: data.source.branch.name,
+        destinationBranch: data.destination.branch.name,
+        computedData: pr.computedData,
+        overrides: pr.overrides,
+        linkedJiraIssues: pr.linkedJiraIssues || [],
+        syncStatus: pr.syncStatus,
+        lastSyncAt: pr.lastSyncAt
+    };
+}
+

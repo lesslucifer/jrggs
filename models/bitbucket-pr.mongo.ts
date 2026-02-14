@@ -133,7 +133,10 @@ export interface IBitbucketPR extends IMongoDocument {
         picAccountId?: string;
         points?: number;
         computedData?: Partial<IBitbucketPRComputedData>;
+        linkedJiraIssues?: string[];
     };
+
+    linkedJiraIssues?: string[];
 
     lastSyncAt: number;
     syncStatus: BitbucketPRSyncStatus;
@@ -169,6 +172,10 @@ const BitbucketPR = MongoModel.createCollection<IBitbucketPR>('bitbucket_pr', {
         {
             name: 'data.updated_on',
             index: { 'data.updated_on': -1 }
+        },
+        {
+            name: 'linkedJiraIssues',
+            index: { linkedJiraIssues: 1 }
         }
     ]
 });

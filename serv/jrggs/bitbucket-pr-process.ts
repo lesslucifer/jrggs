@@ -6,6 +6,47 @@ import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedD
 import { AsyncLockExt, Locked } from "../../utils/async-lock-ext";
 import { BitbucketService } from "../bitbucket";
 
+function extractJiraIssueKeys(text: string, projectKeys: string[]): string[] {
+    if (!text || !projectKeys || projectKeys.length === 0) {
+        return [];
+    }
+
+    // Regex: (MBL6|PROJ2)-\d+
+    // \b = word boundary, ensures no partial matches
+    // gi = global, case-insensitive
+    const projectPattern = projectKeys.join('|');
+    const regex = new RegExp(`\\b(${projectPattern})-(\\d+)\\b`, 'gi');
+
+    const matches = text.matchAll(regex);
+    const issueKeys = new Set<string>();
+
+    for (const match of matches) {
+        issueKeys.add(match[0].toUpperCase());
+    }
+
+    return Array.from(issueKeys).sort();
+}
+
+function extractLinkedJiraIssues(pr: IBitbucketPR): string[] {
+    const projectKeys = HC.JIRA_PROJECT_KEYS;
+    const allKeys = new Set<string>();
+
+    const titleKeys = extractJiraIssueKeys(pr.data.title || '', projectKeys);
+    titleKeys.forEach(key => allKeys.add(key));
+
+    const descriptionKeys = extractJiraIssueKeys(pr.data.description || '', projectKeys);
+    descriptionKeys.forEach(key => allKeys.add(key));
+
+    if (pr.commits && pr.commits.length > 0) {
+        for (const commit of pr.commits) {
+            const commitKeys = extractJiraIssueKeys(commit.message || '', projectKeys);
+            commitKeys.forEach(key => allKeys.add(key));
+        }
+    }
+
+    return Array.from(allKeys).sort();
+}
+
 export class BitbucketPRProcessorService {
     private static Lock = new AsyncLockExt();
     private static isProcessing = false;
@@ -100,8 +141,8 @@ export class BitbucketPRProcessorService {
         }
 
         let computedData = this.computePRMetrics(pr, activity);
-
         let picAccountId = pr.data.author?.account_id;
+        const linkedJiraIssues = pr.overrides?.linkedJiraIssues ?? extractLinkedJiraIssues({ ...pr, activity, commits });  // Default to extracted
 
         if (pr.overrides) {
             if (pr.overrides.computedData) {
@@ -115,14 +156,12 @@ export class BitbucketPRProcessorService {
 
         const status = pr.status === 'COMPLETED' ? pr.status : pr.data.state
 
-        update.$set = { ...update.$set, computedData, picAccountId, status };
+        update.$set = { ...update.$set, computedData, picAccountId, status, linkedJiraIssues };
 
         return update;
     }
 
     private static computePRMetrics(pr: IBitbucketPR, activity: any[]): IBitbucketPRComputedData {
-        const prData = pr.data;
-
         const comments = activity.filter(a => a.comment);
         const approvals = activity.filter(a => a.approval);
         const declines = activity.filter(a => a.update?.state === 'CHANGES_REQUESTED' || a.update?.state === 'DECLINED');
