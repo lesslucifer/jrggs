@@ -6,10 +6,11 @@ import JiraIssue, { JiraIssueSyncStatus } from "../models/jira-issue.mongo";
 import JiraObject from "../models/jira-object.mongo";
 import { AuthServ } from "../serv/auth";
 import { JiraIssueData } from "../serv/jira";
-import { ValidBody } from "../utils/decors";
+import { ValidBody, DocGQLResponse } from "../utils/decors";
 import { AppLogicError } from "../utils/hera";
 import { IssueProcessorService } from "../serv/jrggs/issue-process";
-import { GQLU } from "gql-ts";
+import { GQLFieldFilter, GQLGlobal, GQLU } from "gql-ts";
+import { GQLJiraIssue } from "../models/jira-issue.gql";
 
 class JiraIssueRouter extends ExpressRouter {
     document = {
@@ -18,48 +19,41 @@ class JiraIssueRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:key/metrics" })
-    async getIssueMetrics(@Params('key') key: string) {
-        const issue = await JiraIssue.findOne({ key });
-        const data = new JiraIssueData(issue.data)
-        return {
-            key: issue.key,
-            syncStatus: issue.syncStatus,
-            metrics: issue.metrics
-        };
+    @DocGQLResponse(GQLJiraIssue)
+    async getIssueMetrics(@Params('key') key: string, @Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLJiraIssue);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('key', key));
+        q.options.one = true;
+
+        return await q.resolve();
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:key" })
-    async getIssueByKey(@Params('key') key: string) {
-        const issue = await JiraIssue.findOne({ key });
-        const data = new JiraIssueData(issue.data)
-        return {
-            key: issue.key,
-            title: data.summary,
-            type: data.type,
-            severity: data.severity,
-            storyPoints: data.storyPoint,
-            extraData: issue.extraData ?? {},
-            metrics: issue.metrics,
-            completedAt: issue.completedAt,
-            completedSprint: issue.completedSprint,
-            syncStatus: issue.syncStatus
-        };
+    @DocGQLResponse(GQLJiraIssue)
+    async getIssueByKey(@Params('key') key: string, @Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLJiraIssue);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('key', key));
+        q.options.one = true;
+
+        return await q.resolve();
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:key/history" })
-    async getIssueHistory(@Params('key') key: string) {
-        const issue = await JiraIssue.findOne({ key });
-        const data = new JiraIssueData(issue.data)
-        return {
-            key: issue.key,
-            title: data.summary,
-            type: data.type,
-            severity: data.severity,
-            history: issue.history,
-            changelog: issue.changelog
-        };
+    @DocGQLResponse(GQLJiraIssue)
+    async getIssueHistory(@Params('key') key: string, @Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLJiraIssue);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('key', key));
+        q.options.one = true;
+
+        return await q.resolve();
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
@@ -198,34 +192,24 @@ class JiraIssueRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/sprint/:sprintIds" })
-    async getIssuesBySprint(@Params('sprintIds') sprintIds: string) {
+    @DocGQLResponse(GQLJiraIssue)
+    async getIssuesBySprint(@Params('sprintIds') sprintIds: string, @Query() query: Record<string, string>) {
         const sprintIdNums = sprintIds.split(',').map(id => parseInt(id.trim()));
 
-        const issues = await JiraIssue.find({
-            sprintIds: { $in: sprintIdNums },
-            'data.fields.issuetype.name': { $ne: 'Sub-task' },
-            'extraData.excluded': { $ne: true }
-        }).toArray();
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLJiraIssue);
+        GQLU.whiteListFilter(q, 'sprintIds');
 
-        return issues.map(issue => {
-            const data = new JiraIssueData(issue.data);
-            return {
-                key: issue.key,
-                title: data.summary,
-                type: data.type,
-                severity: data.severity,
-                storyPoints: data.storyPoint,
-                estSP: data.estSP,
-                extraData: issue.extraData ?? {},
-                metrics: issue.metrics,
-                completedAt: issue.completedAt,
-                completedSprint: issue.completedSprint,
-                inChargeDevs: issue.inChargeDevs,
-                status: data.status,
-                sprintIds: issue.sprintIds,
-                syncStatus: issue.syncStatus,
-            };
+        sprintIdNums.forEach(id => {
+            q.filter.add(new GQLFieldFilter('sprintIds', id.toString()));
         });
+
+        const result = await q.resolve();
+
+        if (Array.isArray(result)) {
+            return result.filter(issue => !issue.isSubTask && !issue.isExcluded);
+        }
+
+        return result;
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)

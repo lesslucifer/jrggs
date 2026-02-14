@@ -4,8 +4,10 @@ import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedD
 import { AuthServ } from "../serv/auth";
 import { AppLogicError } from "../utils/hera";
 import { BitbucketPRProcessorService } from "../serv/jrggs/bitbucket-pr-process";
-import { ValidBody } from "../utils/decors";
+import { ValidBody, DocGQLResponse } from "../utils/decors";
 import _ from "lodash";
+import { GQLFieldFilter, GQLGlobal, GQLU } from "gql-ts";
+import { GQLBitbucketPR } from "../models/bitbucket-pr.gql";
 
 class BitbucketPRRouter extends ExpressRouter {
     document = {
@@ -14,102 +16,105 @@ class BitbucketPRRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug/:prId" })
-    async getPRById(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string) {
+    @DocGQLResponse(GQLBitbucketPR)
+    async getPRById(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string, @Query() query: Record<string, string>) {
         const prId = parseInt(sPrId);
-        const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug });
 
-        if (!pr) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('prId', prId.toString()));
+        q.filter.add(new GQLFieldFilter('workspace', workspace));
+        q.filter.add(new GQLFieldFilter('repoSlug', repoSlug));
+        q.options.one = true;
+
+        const result = await q.resolve();
+
+        if (!result) {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
         }
 
-        return getPRResponse(pr);
+        return result;
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug" })
+    @DocGQLResponse(GQLBitbucketPR)
     async getPRsByRepo(
         @Params('workspace') workspace: string,
         @Params('repoSlug') repoSlug: string,
-        @Query('status') status?: string,
-        @Query('skip') sSkip?: string,
-        @Query('limit') sLimit?: string
+        @Query() query: Record<string, string>
     ) {
-        const filter: any = { workspace, repoSlug };
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q, 'status');
 
-        // Support multiple status values (comma-separated)
-        if (status) {
-            const statusValues = status.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
-            if (statusValues.length === 1) {
-                filter['status'] = statusValues[0];
-            } else if (statusValues.length > 1) {
-                filter['status'] = { $in: statusValues };
-            }
-        }
+        q.filter.add(new GQLFieldFilter('workspace', workspace));
+        q.filter.add(new GQLFieldFilter('repoSlug', repoSlug));
 
-        // Pagination parameters
-        const skip = sSkip ? parseInt(sSkip) : 0;
-        const limit = sLimit ? Math.min(parseInt(sLimit), 500) : 100;
-
-        const prs = await BitbucketPR.find(filter, { sort: { 'data.updated_on': -1 } })
-            .skip(skip)
-            .limit(limit)
-            .toArray();
-
-        return prs.map(pr => getPRResponse(pr));
+        const prs = await q.resolve();
+        return prs
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/by-jira-issue/:issueKey" })
+    @DocGQLResponse(GQLBitbucketPR)
     async getPRsByJiraIssue(
         @Params('issueKey') issueKey: string,
-        @Query('skip') sSkip?: string,
-        @Query('limit') sLimit?: string
+        @Query() query: Record<string, string>
     ) {
-        const normalizedKey = issueKey.toUpperCase();
-        const skip = sSkip ? parseInt(sSkip) : 0;
-        const limit = sLimit ? Math.min(parseInt(sLimit), 500) : 100;
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q);
 
-        const prs = await BitbucketPR.find(
-            { linkedJiraIssues: normalizedKey },
-            { sort: { 'data.updated_on': -1 } }
-        )
-            .skip(skip)
-            .limit(limit)
-            .toArray();
+        // Add filter for linked Jira issue (case-insensitive, handled in resolver)
+        q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey.toUpperCase()));
 
-        return prs.map(pr => getPRResponse(pr));
+        return await q.resolve();
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug/:prId/activity" })
-    async getPRActivity(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string) {
+    @DocGQLResponse(GQLBitbucketPR)
+    async getPRActivity(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string, @Query() query: Record<string, string>) {
         const prId = parseInt(sPrId);
-        const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug }, { projection: { activity: 1, prId: 1 } });
 
-        if (!pr) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('prId', prId.toString()));
+        q.filter.add(new GQLFieldFilter('workspace', workspace));
+        q.filter.add(new GQLFieldFilter('repoSlug', repoSlug));
+        q.options.one = true;
+
+        const result = await q.resolve();
+
+        if (!result) {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
         }
 
-        return {
-            prId: pr.prId,
-            activity: pr.activity
-        };
+        return result;
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug/:prId/commits" })
-    async getPRCommits(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string) {
+    @DocGQLResponse(GQLBitbucketPR)
+    async getPRCommits(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string, @Query() query: Record<string, string>) {
         const prId = parseInt(sPrId);
-        const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug }, { projection: { commits: 1, prId: 1 } });
 
-        if (!pr) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('prId', prId.toString()));
+        q.filter.add(new GQLFieldFilter('workspace', workspace));
+        q.filter.add(new GQLFieldFilter('repoSlug', repoSlug));
+        q.options.one = true;
+
+        const result = await q.resolve();
+
+        if (!result) {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
         }
 
-        return {
-            prId: pr.prId,
-            commits: pr.commits
-        };
+        return result;
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
@@ -151,7 +156,7 @@ class BitbucketPRRouter extends ExpressRouter {
             '@totalDeclines': 'number|>=0',
             '++': false
         },
-        '@linkedJiraIssues': ['string'],
+        '@[]linkedJiraIssues': 'string',
         '++': false
     })
     @PUT({ path: "/:workspace/:repoSlug/:prId/overrides" })
@@ -167,27 +172,28 @@ class BitbucketPRRouter extends ExpressRouter {
         }
     ) {
         const prId = parseInt(sPrId);
-
-        const overrideUpdates: any = {};
+        
+        const prUpdate: any = {};
         if (body.picAccountId !== undefined) {
-            overrideUpdates['overrides.picAccountId'] = body.picAccountId;
+            prUpdate['overrides.picAccountId'] = body.picAccountId;
         }
         if (body.points !== undefined) {
-            overrideUpdates['overrides.points'] = body.points;
+            prUpdate['status'] = 'COMPLETED'
+            prUpdate['overrides.points'] = body.points;
         }
         if (body.computedData !== undefined) {
-            overrideUpdates['overrides.computedData'] = _.omitBy(body.computedData, _.isNil);
+            prUpdate['overrides.computedData'] = _.omitBy(body.computedData, _.isNil);
         }
         if (body.linkedJiraIssues !== undefined) {
             const normalizedKeys = body.linkedJiraIssues.map(key => key.toUpperCase());
-            overrideUpdates['overrides.linkedJiraIssues'] = normalizedKeys;
+            prUpdate['overrides.linkedJiraIssues'] = normalizedKeys;
         }
 
         const pr = await BitbucketPR.findOneAndUpdate(
             { prId, workspace, repoSlug },
             {
                 $set: {
-                    ...overrideUpdates,
+                    ...prUpdate,
                     syncStatus: BitbucketPRSyncStatus.PENDING
                 }
             }

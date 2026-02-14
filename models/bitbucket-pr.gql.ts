@@ -1,0 +1,145 @@
+import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLMapper, GQLModel, GQLObject, GQLQuery, GQLResolver, GQLU } from "gql-ts";
+import hera from "../utils/hera";
+import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR } from "./bitbucket-pr.mongo";
+import _ from "lodash";
+
+@GQLObject("bitbucket-pr")
+export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
+    @GQLField()
+    _id: string;
+
+    @GQLField()
+    prId: number;
+
+    @GQLField()
+    workspace: string;
+
+    @GQLField()
+    repoSlug: string;
+
+    @GQLField()
+    syncStatus: BitbucketPRSyncStatus;
+
+    @GQLField()
+    lastSyncAt: number;
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    data: any;
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    activity: any[];
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    commits: any[];
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    computedData: any;
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    overrides: any;
+
+    @GQLField()
+    status?: string;
+
+    @GQLField()
+    @GQLIdenticalMapping()
+    linkedJiraIssues: string[];
+
+    @GQLField()
+    title?: string
+
+    @GQLField()
+    description?: string;
+
+    @GQLField()
+    state?: string;
+
+    @GQLField()
+    author?: any;
+
+    @GQLField()
+    createdOn?: string;
+
+    @GQLField()
+    updatedOn?: string;
+
+    @GQLField()
+    sourceBranch?: string;
+
+    @GQLField()
+    destinationBranch?: string;
+
+    @GQLField()
+    points?: number
+
+    static get DefaultSelect() {
+        return {
+            _id: true,
+            prId: true,
+            workspace: true,
+            repoSlug: true,
+            syncStatus: true,
+            status: true,
+            linkedJiraIssues: true
+        };
+    }
+
+    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'syncStatus']) })
+    static async rootResolve(query: GQLQuery<GQLBitbucketPR>) {
+        const prIds = query.filter.get('prId').batch<string>().map(id => parseInt(id));
+        const workspaces = query.filter.get('workspace').batch<string>();
+        const repoSlugs = query.filter.get('repoSlug').batch<string>();
+        const statuses = query.filter.get('status').batch<string>();
+        const linkedJiraIssuesFilter = query.filter.get('linkedJiraIssues').batch<string>();
+        const syncStatuses = query.filter.get('syncStatus').batch<string>();
+
+        const mongoQuery = GQLU.notEmpty({
+            prId: hera.mongoEqOrIn(prIds),
+            workspace: hera.mongoEqOrIn(workspaces),
+            repoSlug: hera.mongoEqOrIn(repoSlugs),
+            status: hera.mongoEqOrIn(statuses),
+            linkedJiraIssues: linkedJiraIssuesFilter.length > 0 ? { $in: linkedJiraIssuesFilter.map(k => k.toUpperCase()) } : undefined,
+            syncStatus: hera.mongoEqOrIn(syncStatuses)
+        });
+
+        const result = await hera.gqlMongoQueryPagination(
+            GQLBitbucketPR,
+            query,
+            BitbucketPR,
+            mongoQuery,
+            { defaultLimit: 100, maxLimit: 500 }
+        );
+
+        return result;
+    }
+
+    @GQLMapper({ fields: ['title', 'description', 'state', 'author', 'createdOn', 'updatedOn', 'sourceBranch', 'destinationBranch'], addRawFields: ['data'] })
+    static async mapDataFields(query: GQLQuery<GQLBitbucketPR>, models: GQLBitbucketPR[]) {
+        models.forEach(model => {
+            model.title = _.get(model.raw?.data, 'title', '');
+            model.description = _.get(model.raw?.data, 'description', '');
+            model.state = _.get(model.raw?.data, 'state', '');
+            model.author = _.get(model.raw?.data, 'author');
+            model.createdOn = _.get(model.raw?.data, 'created_on', '');
+            model.updatedOn = _.get(model.raw?.data, 'updated_on', '');
+            model.sourceBranch = _.get(model.raw?.data, 'source.branch.name', '');
+            model.destinationBranch = _.get(model.raw?.data, 'destination.branch.name', '');
+        });
+        return models;
+    }
+
+    @GQLMapper({ fields: ['points'], addRawFields: ['overrides'] })
+    static async mapPoints(query: GQLQuery<GQLBitbucketPR>, models: GQLBitbucketPR[]) {
+        models.forEach(model => {
+            model.points = _.get(model.raw?.overrides, 'points');
+        }); 
+        return models
+    }
+}
+
+GQLGlobal.add(GQLBitbucketPR)
