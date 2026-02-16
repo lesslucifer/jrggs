@@ -46,7 +46,7 @@ class BitbucketPRRouter extends ExpressRouter {
         @Query() query: Record<string, string>
     ) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
-        GQLU.whiteListFilter(q);
+        GQLU.whiteListFilter(q, 'q');
 
         q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey.toUpperCase()));
 
@@ -62,7 +62,7 @@ class BitbucketPRRouter extends ExpressRouter {
         @Query() query: Record<string, string>
     ) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
-        GQLU.whiteListFilter(q, 'status');
+        GQLU.whiteListFilter(q, 'status', 'q');
 
         q.filter.add(new GQLFieldFilter('workspace', workspace));
         q.filter.add(new GQLFieldFilter('repoSlug', repoSlug));

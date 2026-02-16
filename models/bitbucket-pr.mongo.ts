@@ -177,6 +177,15 @@ const BitbucketPR = MongoModel.createCollection<IBitbucketPR>('bitbucket_pr', {
         {
             name: 'linkedJiraIssues',
             index: { linkedJiraIssues: 1 }
+        },
+        {
+            name: 'text',
+            index: {
+                prId: 'text',
+                linkedJiraIssues: 'text',
+                'data.title': 'text'
+            },
+            opts: { default_language: 'none' }
         }
     ]
 });

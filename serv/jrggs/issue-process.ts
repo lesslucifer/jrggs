@@ -184,12 +184,10 @@ export class IssueProcessorService {
         const history: IJiraIssueHistoryRecord[] = [];
         let lastRecord: IJiraIssueHistoryRecord | undefined = current
 
-        // Process all changelogs in chronological order
         for (const log of changelogs) {
             const time = new Date(log.created).getTime();
             const update: Partial<IJiraIssueHistoryRecord> = {};
 
-            // Process each change item in the changelog
             for (const item of log.items || []) {
                 switch (item.field) {
                     case 'assignee':
