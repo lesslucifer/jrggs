@@ -39,6 +39,10 @@ export class GQLJiraIssue extends GQLModel<IJiraIssue, GQLJiraIssue> {
 
     @GQLField({ autoSelect: true })
     @GQLIdenticalMapping()
+    extraPoints: any;
+
+    @GQLField({ autoSelect: true })
+    @GQLIdenticalMapping()
     extraData: any;
 
     @GQLField()

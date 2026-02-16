@@ -88,6 +88,30 @@ class JiraIssueRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
+    @ValidBody({
+        '+@{}extraPoints': 'number|>0'
+    })
+    @PUT({ path: "/:key/extraPoints" })
+    async updateExtraPointsOverride(@Params('key') key: string, @Body() body: { extraPoints: Record<string, number> }) {
+        const issue = await JiraIssue.findOne({ key }, { projection: { _id: 1, key: 1 } });
+        if (!issue) {
+            throw new AppLogicError(`Issue with key ${key} not found`, 404);
+        }
+
+        const uids = Object.keys(body.extraPoints)
+        const userObjects = await JiraObject.find({ id: { $in: uids }, type: 'user' }, { projection: { _id: 1, id: 1 } }).toArray();
+        const userMap = _.keyBy(userObjects, 'id')
+        const notFoundUsers = uids.filter(uid => !userMap[uid])
+        if (notFoundUsers.length > 0) {
+            throw new AppLogicError(`Some users not found: ${notFoundUsers.join(', ')}`, 404);
+        }
+
+        await JiraIssue.updateOne({ key }, { $set: { 'extraPoints': _.sortBy(Object.entries(body.extraPoints).map(([uid, ep]) => ({ userId: uid, extraPoints: ep })), 'userId') } });
+
+        return { key, extraPoints: body.extraPoints };
+    }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/:key/overrides/excluded/:isExcluded" })
     async updateExcludedOverride(@Params('key') key: string, @Params('isExcluded') sIsExcluded: string) {
         const isExcluded = GQLU.toBoolean(sIsExcluded)

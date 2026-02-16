@@ -89,6 +89,11 @@ export interface IJiraIssue extends IMongoDocument {
     sprintIds?: number[];
     inChargeDevs?: string[];
 
+    extraPoints?: {
+        userId: string;
+        extraPoints: number;
+    }[];
+
     extraData?: {
         storyPoints?: {
             userId: string;
