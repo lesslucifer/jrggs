@@ -134,6 +134,7 @@ export interface IBitbucketPR extends IMongoDocument {
         points?: number;
         computedData?: Partial<IBitbucketPRComputedData>;
         linkedJiraIssues?: string[];
+        excludedLinkedJiraIssues?: string[];
     };
 
     linkedJiraIssues?: string[];

@@ -238,6 +238,41 @@ class BitbucketPRRouter extends ExpressRouter {
 
         return { prId };
     }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @DELETE({ path: "/:workspace/:repoSlug/:prId/linked-issues/:issueKey" })
+    async unlinkIssueFromPR(
+        @Params('workspace') workspace: string,
+        @Params('repoSlug') repoSlug: string,
+        @Params('prId') sPrId: string,
+        @Params('issueKey') issueKey: string
+    ) {
+        const prId = parseInt(sPrId);
+        const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug });
+
+        if (!pr) {
+            throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
+        }
+
+        await BitbucketPR.updateOne(
+            { prId, workspace, repoSlug },
+            {
+                $addToSet: {
+                    'overrides.excludedLinkedJiraIssues': issueKey
+                },
+                $pull: {
+                    'linkedJiraIssues': issueKey
+                },
+                $set: {
+                    syncStatus: BitbucketPRSyncStatus.PENDING
+                },
+            }
+        );
+
+        BitbucketPRProcessorService.checkToProcess();
+        return { prId, unlinkedIssueKey: issueKey };
+    }
+
 }
 
 export default new BitbucketPRRouter();export function getPRResponse(pr: IBitbucketPR) {

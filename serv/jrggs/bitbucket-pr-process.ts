@@ -142,7 +142,12 @@ export class BitbucketPRProcessorService {
 
         let computedData = this.computePRMetrics(pr, activity);
         let picAccountId = pr.data.author?.account_id;
-        const linkedJiraIssues = pr.overrides?.linkedJiraIssues ?? extractLinkedJiraIssues({ ...pr, activity, commits });  // Default to extracted
+
+        let linkedJiraIssues = pr.overrides?.linkedJiraIssues ?? extractLinkedJiraIssues({ ...pr, activity, commits });
+        if (pr.overrides?.excludedLinkedJiraIssues?.length > 0) {
+            const excludedSet = new Set(pr.overrides.excludedLinkedJiraIssues.map(k => k.toUpperCase()));
+            linkedJiraIssues = linkedJiraIssues.filter(key => !excludedSet.has(key.toUpperCase()));
+        }
 
         if (pr.overrides) {
             if (pr.overrides.computedData) {
