@@ -1,6 +1,6 @@
 import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLMapper, GQLModel, GQLObject, GQLQuery, GQLResolver, GQLU } from "gql-ts";
 import hera from "../utils/hera";
-import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "./jira-issue.mongo";
+import JiraIssue, { IJiraIssue, JiraIssueSyncStatus, JiraIssueValueStatus } from "./jira-issue.mongo";
 import _ from "lodash";
 
 @GQLObject("jira-issue")
@@ -86,6 +86,16 @@ export class GQLJiraIssue extends GQLModel<IJiraIssue, GQLJiraIssue> {
     @GQLField()
     isExcluded?: boolean;
 
+    @GQLField()
+    value?: number;
+
+    @GQLField()
+    @GQLIdenticalMapping()
+    valueDistribution?: { userId: string; value: number }[];
+
+    @GQLField()
+    valueStatus: JiraIssueValueStatus;
+
     static get DefaultSelect() {
         return {
             _id: true,
@@ -96,20 +106,22 @@ export class GQLJiraIssue extends GQLModel<IJiraIssue, GQLJiraIssue> {
         };
     }
 
-    @GQLResolver({ matches: GQLU.byFields([], ['key', 'sprintIds', 'syncStatus', 'completedAt', 'inChargeDevs']) })
+    @GQLResolver({ matches: GQLU.byFields([], ['key', 'sprintIds', 'syncStatus', 'completedAt', 'inChargeDevs', 'valueStatus']) })
     static async rootResolve(query: GQLQuery<GQLJiraIssue>) {
         const keys = query.filter.get('key').batch<string>();
         const sprintIdsFilter = query.filter.get('sprintIds').batch<string>();
         const syncStatuses = query.filter.get('syncStatus').batch<string>();
         const completedAtFilter = query.filter.get('completedAt').first<string>();
         const inChargeDevsFilter = query.filter.get('inChargeDevs').batch<string>();
+        const valueStatuses = query.filter.get('valueStatus').batch<string>();
 
         const mongoQuery = GQLU.notEmpty({
             key: hera.mongoEqOrIn(keys),
             sprintIds: sprintIdsFilter.length > 0 ? { $in: sprintIdsFilter.map(id => parseInt(id)) } : undefined,
             syncStatus: hera.mongoEqOrIn(syncStatuses),
             completedAt: completedAtFilter ? parseInt(completedAtFilter) : undefined,
-            inChargeDevs: inChargeDevsFilter.length > 0 ? { $in: inChargeDevsFilter } : undefined
+            inChargeDevs: inChargeDevsFilter.length > 0 ? { $in: inChargeDevsFilter } : undefined,
+            valueStatus: hera.mongoEqOrIn(valueStatuses)
         });
 
         const result = await hera.gqlMongoQueryPagination(

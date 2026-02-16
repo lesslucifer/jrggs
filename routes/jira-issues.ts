@@ -88,6 +88,37 @@ class JiraIssueRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
+    @ValidBody({
+        '+@{}valueDistribution': 'number|>0'
+    })
+    @PUT({ path: "/:key/overrides/valuedistribution" })
+    async updateValueDistributionOverride(@Params('key') key: string, @Body() body: { valueDistribution: Record<string, number> }) {
+        const issue = await JiraIssue.findOne({ key }, { projection: { _id: 1, key: 1 } });
+        if (!issue) {
+            throw new AppLogicError(`Issue with key ${key} not found`, 404);
+        }
+
+        const uids = Object.keys(body.valueDistribution)
+        const userObjects = await JiraObject.find({ id: { $in: uids }, type: 'user' }, { projection: { _id: 1, id: 1 } }).toArray();
+        const userMap = _.keyBy(userObjects, 'id')
+        const notFoundUsers = uids.filter(uid => !userMap[uid])
+        if (notFoundUsers.length > 0) {
+            throw new AppLogicError(`Some users not found: ${notFoundUsers.join(', ')}`, 404);
+        }
+
+        const overrides = await JiraIssueOverrides.findOneAndUpdate(
+            { key },
+            { $set: { valueDistribution: body.valueDistribution } },
+            { upsert: true }
+        );
+
+        await JiraIssue.updateOne({ key }, { $set: { valueDistribution: _.sortBy(Object.entries(body.valueDistribution).map(([uid, val]) => ({ userId: uid, value: val })), 'userId'), syncStatus: JiraIssueSyncStatus.PENDING } });
+        IssueProcessorService.checkToProcess()
+
+        return overrides;
+    }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/:key/overrides/excluded/:isExcluded" })
     async updateExcludedOverride(@Params('key') key: string, @Params('isExcluded') sIsExcluded: string) {
         const isExcluded = GQLU.toBoolean(sIsExcluded)
@@ -231,7 +262,7 @@ class JiraIssueRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/sync-all" })
     async syncAllIssues() {
-        await JiraIssue.updateMany({}, { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { refreshHistory: true } } });
+        await JiraIssue.updateMany({}, { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { refreshHistory: true, skipChangeLog: true, skipDevInCharge: true } } });
         IssueProcessorService.checkToProcess()
     }
 }

@@ -7,6 +7,12 @@ export enum JiraIssueSyncStatus {
     FAILED = 'FAILED',
 }
 
+export enum JiraIssueValueStatus {
+    WAITING = 'WAITING',
+    WARNING = 'WARNING',
+    RESOLVED = 'RESOLVED',
+}
+
 export interface IJiraUserInfo {
     accountId?: string;
     displayName?: string;
@@ -88,7 +94,14 @@ export interface IJiraIssue extends IMongoDocument {
     metrics: IJiraIssueUserMetrics;
     sprintIds?: number[];
     inChargeDevs?: string[];
-    
+
+    value?: number;
+    valueDistribution?: {
+        userId: string;
+        value: number;
+    }[];
+    valueStatus: JiraIssueValueStatus;
+
     extraData?: {
         storyPoints?: {
             userId: string;
@@ -108,6 +121,8 @@ export interface IJiraIssue extends IMongoDocument {
     lastSyncAt: number;
     syncStatus: JiraIssueSyncStatus;
     syncParams?: {
+        skipChangeLog?: boolean;
+        skipDevInCharge?: boolean;
         refreshHistory: boolean;
     };
 }
@@ -119,7 +134,8 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'completedAt-1', index: { completedAt: -1 } },
         { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
         { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } },
-        { name: 'sprintIds', index: { sprintIds: 1 } }
+        { name: 'sprintIds', index: { sprintIds: 1 } },
+        { name: 'valueStatus', index: { valueStatus: 1 } }
     ]
 })
 

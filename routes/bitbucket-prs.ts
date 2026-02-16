@@ -8,6 +8,7 @@ import { ValidBody, DocGQLResponse } from "../utils/decors";
 import _ from "lodash";
 import { GQLFieldFilter, GQLGlobal, GQLU } from "gql-ts";
 import { GQLBitbucketPR } from "../models/bitbucket-pr.gql";
+import JiraIssue, { JiraIssueSyncStatus } from "../models/jira-issue.mongo";
 
 class BitbucketPRRouter extends ExpressRouter {
     document = {
@@ -38,6 +39,21 @@ class BitbucketPRRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/by-jira-issue/:issueKey" })
+    @DocGQLResponse(GQLBitbucketPR)
+    async getPRsByJiraIssue(
+        @Params('issueKey') issueKey: string,
+        @Query() query: Record<string, string>
+    ) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey.toUpperCase()));
+
+        return await q.resolve();
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug" })
     @DocGQLResponse(GQLBitbucketPR)
     async getPRsByRepo(
@@ -53,22 +69,6 @@ class BitbucketPRRouter extends ExpressRouter {
 
         const prs = await q.resolve();
         return prs
-    }
-
-    @AuthServ.authUser(USER_ROLE.USER)
-    @GET({ path: "/by-jira-issue/:issueKey" })
-    @DocGQLResponse(GQLBitbucketPR)
-    async getPRsByJiraIssue(
-        @Params('issueKey') issueKey: string,
-        @Query() query: Record<string, string>
-    ) {
-        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
-        GQLU.whiteListFilter(q);
-
-        // Add filter for linked Jira issue (case-insensitive, handled in resolver)
-        q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey.toUpperCase()));
-
-        return await q.resolve();
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
@@ -139,7 +139,7 @@ class BitbucketPRRouter extends ExpressRouter {
     async syncAllPRs(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string) {
         const result = await BitbucketPR.updateMany(
             { workspace, repoSlug },
-            { $set: { syncStatus: BitbucketPRSyncStatus.PENDING, syncParams: { refreshActivity: true, refreshCommits: true } } }
+            { $set: { syncStatus: BitbucketPRSyncStatus.PENDING, syncParams: { refreshActivity: false, refreshCommits: false } } }
         );
 
         BitbucketPRProcessorService.checkToProcess();
@@ -172,7 +172,7 @@ class BitbucketPRRouter extends ExpressRouter {
         }
     ) {
         const prId = parseInt(sPrId);
-        
+
         const prUpdate: any = {};
         if (body.picAccountId !== undefined) {
             prUpdate['overrides.picAccountId'] = body.picAccountId;
@@ -201,6 +201,14 @@ class BitbucketPRRouter extends ExpressRouter {
 
         if (!pr) {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
+        }
+        
+        const linkedIssues = pr?.overrides?.linkedJiraIssues ?? pr?.linkedJiraIssues ?? []
+        if (linkedIssues.length > 0) {
+            await JiraIssue.updateMany(
+                { key: { $in: pr.linkedJiraIssues } },
+                { $set: { syncStatus: JiraIssueSyncStatus.PENDING } }
+            );
         }
 
         BitbucketPRProcessorService.checkToProcess();
