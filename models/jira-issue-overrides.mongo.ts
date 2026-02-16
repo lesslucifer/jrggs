@@ -5,9 +5,6 @@ export interface IJiraIssueOverrides {
     storyPoints: {
         [uid: string]: number;
     },
-    valueDistribution?: {
-        [uid: string]: number;
-    },
     invalidChangelogIds?: {
         [id: string]: boolean;
     };

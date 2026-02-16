@@ -18,7 +18,8 @@
     "watch-debug": "tsc-watch --onSuccess \"node --inspect ./dist/app.js\"",
     "coverage": "nyc mocha \"test/**/*.ts\"",
     "swagger": "node dist/swagger.document.js",
-    "dev-schedule": "nodemon --exec ts-node --transpile-only schedules/main.ts"
+    "dev-schedule": "nodemon --exec ts-node --transpile-only schedules/main.ts",
+    "tsc": "tsc --noEmit"
   },
   "author": "VuLQ",
   "dependencies": {

@@ -3,12 +3,11 @@ import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
-import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, IJiraUserInfo, JiraIssueSyncStatus, JiraIssueValueStatus } from "../../models/jira-issue.mongo";
+import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, IJiraUserInfo, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
 import moment from "moment";
-import BitbucketPR, { IBitbucketPR } from "../../models/bitbucket-pr.mongo";
 
 export class IssueProcessorService {
     private static Lock = new AsyncLockExt()
@@ -155,12 +154,6 @@ export class IssueProcessorService {
         const storyPoints = this.computeStoryPoints(iss, overrides)
         iss.extraData = { ...iss.extraData, storyPoints }
         update.$set = { ...update.$set, 'extraData.storyPoints': storyPoints }
-
-        const { value, valueDistribution, valueStatus } = await this.computeValueData(iss, overrides)
-        iss.value = value
-        iss.valueDistribution = valueDistribution
-        iss.valueStatus = valueStatus
-        update.$set = { ...update.$set, value, valueDistribution, valueStatus }
 
         const metrics = this.computeIssueMetrics(iss)
         iss.metrics = metrics
@@ -340,79 +333,6 @@ export class IssueProcessorService {
         }
 
         return _.sortBy(Array.from(sprintIds));
-    }
-
-    private static async computeValueData(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<{
-        value: number | undefined;
-        valueDistribution: { userId: string; value: number }[] | undefined;
-        valueStatus: JiraIssueValueStatus;
-    }> {
-        if (overrides?.valueDistribution) {
-            return {
-                value: iss.value,
-                valueDistribution: Object.entries(overrides?.valueDistribution).map(([uid, val]) => ({ userId: uid, value: val })),
-                valueStatus: JiraIssueValueStatus.RESOLVED
-            }
-        }
-
-        const linkedPRs = await BitbucketPR.find({ linkedJiraIssues: iss.key }).toArray()
-        const value = this.computeValue(iss, linkedPRs)
-
-        const valueDistribution = this.computeValueDistribution(iss, value)
-        const valueStatus = this.computeValueStatus(linkedPRs, value, iss.valueStatus, valueDistribution)
-
-        return { value, valueDistribution, valueStatus }
-    }
-
-    private static computeValue(iss: IJiraIssue, linkedPRs: IBitbucketPR[]): number | undefined {
-        if (linkedPRs.length === 0) {
-            const issueData = new JiraIssueData(iss.data)
-            return issueData.storyPoint
-        }
-
-        const prPoints = linkedPRs.map(pr => _.get(pr, 'overrides.points'))
-        const allHavePoints = prPoints.every(points => _.isNumber(points))
-        return allHavePoints ? _.sum(prPoints) : undefined
-    }
-
-    private static computeValueDistribution(
-        iss: IJiraIssue,
-        value: number | undefined,
-    ): { userId: string; value: number }[] | undefined {
-        if (value === undefined) {
-            return undefined
-        }
-
-        const devCounter = _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
-        const sortedDevs = _.sortBy(Object.keys(devCounter), (uid) => -devCounter[uid])
-
-        if (sortedDevs.length === 0 && value > 0) {
-            sortedDevs.push('unknown')
-        }
-
-        return sortedDevs.map((uid, idx) => {
-            const devValue = Math.floor(value / sortedDevs.length) + (idx < value % sortedDevs.length ? 1 : 0)
-            return { userId: uid, value: devValue }
-        })
-    }
-
-    private static computeValueStatus(
-        linkedPRs: IBitbucketPR[],
-        value: number | undefined,
-        prevStatus: JiraIssueValueStatus,
-        valueDistribution: { userId: string, value: number }[] | undefined
-    ): JiraIssueValueStatus {
-        if (prevStatus === JiraIssueValueStatus.RESOLVED) {
-            return prevStatus
-        }
-
-        if (value === undefined || valueDistribution === undefined) {
-            return JiraIssueValueStatus.WAITING
-        }
-
-        if (!linkedPRs.length) return JiraIssueValueStatus.WARNING
-
-        return _.sumBy(valueDistribution, d => d.value) === value ? JiraIssueValueStatus.RESOLVED : JiraIssueValueStatus.WARNING
     }
 }
 
