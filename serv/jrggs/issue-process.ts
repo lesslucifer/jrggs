@@ -4,6 +4,7 @@ import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
 import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, IJiraUserInfo, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import BitbucketPR from "../../models/bitbucket-pr.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
@@ -128,7 +129,7 @@ export class IssueProcessorService {
             update.$set = { ...update.$set, history: history, current: _.last(history) }
         }
 
-        const inChargeDevs = this.computeInChargeDevs(iss)
+        const inChargeDevs = await this.computeInChargeDevs(iss)
         iss.inChargeDevs = inChargeDevs
         update.$set = { ...update.$set, inChargeDevs }
 
@@ -166,23 +167,17 @@ export class IssueProcessorService {
         return update
     }
 
-    private static computeInChargeDevs(iss: IJiraIssue, overrides?: IJiraIssueOverrides): string[] {
-        const assignees = new Map<string, number>()
+    private static async computeInChargeDevs(iss: IJiraIssue): Promise<string[]> {
+        const linkedPRs = await BitbucketPR.find({ linkedJiraIssues: iss.key }).toArray()
 
-        for (const log of iss.changelog) {
-            const isActive = !overrides?.invalidChangelogIds?.[log.id]
+        const userIds = new Set<string>([
+            iss.data.fields?.assignee?.accountId,
+            ...(iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId),
+            ...(iss.extraPoints ?? []).map(ep => ep.userId),
+            ...linkedPRs.map(pr => pr.overrides?.picAccountId ?? pr.data.author?.account_id)
+        ])
 
-            if (isActive && log.items?.some(item => item.field === 'status' && ['code review', 'in progress'].some(status => item.toString.toLowerCase().includes(status)))) {
-                assignees.set(log.author.accountId, new Date(log.created).getTime())
-            }
-        }
-        
-        const accountId = iss.data.fields?.assignee?.accountId
-        if (accountId) {
-            assignees.set(accountId, Date.now())
-        }
-
-        return _.sortBy(Array.from(assignees.entries()), (a) => a[1]).map(a => a[0])
+        return _.compact([...userIds])
     }
 
     private static computeIssueHistoryRecords(changelogs: IJiraIssueChangelogRecord[], current?: IJiraIssueHistoryRecord): IJiraIssueHistoryRecord[] {
