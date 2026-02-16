@@ -89,7 +89,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         };
     }
 
-    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'syncStatus']) })
+    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'syncStatus', 'q']) })
     static async rootResolve(query: GQLQuery<GQLBitbucketPR>) {
         const prIds = query.filter.get('prId').batch<string>().map(id => parseInt(id));
         const workspaces = query.filter.get('workspace').batch<string>();
@@ -97,6 +97,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         const statuses = query.filter.get('status').batch<string>();
         const linkedJiraIssuesFilter = query.filter.get('linkedJiraIssues').batch<string>();
         const syncStatuses = query.filter.get('syncStatus').batch<string>();
+        const textQuery = query.filter.get('q').first();
 
         const mongoQuery = GQLU.notEmpty({
             prId: hera.mongoEqOrIn(prIds),
@@ -104,7 +105,8 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
             repoSlug: hera.mongoEqOrIn(repoSlugs),
             status: hera.mongoEqOrIn(statuses),
             linkedJiraIssues: linkedJiraIssuesFilter.length > 0 ? { $in: linkedJiraIssuesFilter.map(k => k.toUpperCase()) } : undefined,
-            syncStatus: hera.mongoEqOrIn(syncStatuses)
+            syncStatus: hera.mongoEqOrIn(syncStatuses),
+            ...(textQuery ? { $text: { $search: textQuery } } : {})
         });
 
         const result = await hera.gqlMongoQueryPagination(
