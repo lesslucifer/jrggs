@@ -59,7 +59,9 @@ class JiraIssueRouter extends ExpressRouter {
                             storyPoints: 0,
                             nRejections: 0,
                             defects: 0,
-                            nCodeReviews: 0
+                            nCodeReviews: 0,
+                            nPRs: 0,
+                            prPoints: 0
                         }
                     }
                 }
@@ -69,6 +71,8 @@ class JiraIssueRouter extends ExpressRouter {
                 acc[key].metrics.nRejections += metrics.nRejections
                 acc[key].metrics.defects += metrics.defects
                 acc[key].metrics.nCodeReviews += metrics.nCodeReviews
+                acc[key].metrics.nPRs += metrics.nPRs
+                acc[key].metrics.prPoints += metrics.prPoints
             })
 
             return acc
@@ -79,7 +83,9 @@ class JiraIssueRouter extends ExpressRouter {
                 storyPoints: number,
                 nRejections: number,
                 defects: number,
-                nCodeReviews: number
+                nCodeReviews: number,
+                nPRs: number,
+                prPoints: number
             }
         }>)
 

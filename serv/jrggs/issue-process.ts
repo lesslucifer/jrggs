@@ -150,7 +150,7 @@ export class IssueProcessorService {
         iss.extraData = { ...iss.extraData, storyPoints }
         update.$set = { ...update.$set, 'extraData.storyPoints': storyPoints }
 
-        const linkedPRs = await BitbucketPR.find({ linkedJiraIssues: iss.key }).toArray()
+        const linkedPRs = await BitbucketPR.find({ activeLinkedIssueKey: iss.key }).toArray()
 
         const inChargeDevs = await this.computeInChargeDevs(iss, linkedPRs)
         iss.inChargeDevs = inChargeDevs

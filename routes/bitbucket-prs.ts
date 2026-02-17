@@ -1,4 +1,4 @@
-import { Body, ExpressRouter, GET, PUT, DELETE, Params, Query } from "express-router-ts";
+import { Body, ExpressRouter, GET, PUT, Params, Query } from "express-router-ts";
 import { USER_ROLE } from "../glob/cf";
 import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedData } from "../models/bitbucket-pr.mongo";
 import { AuthServ } from "../serv/auth";
@@ -48,7 +48,7 @@ class BitbucketPRRouter extends ExpressRouter {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
         GQLU.whiteListFilter(q, 'q');
 
-        q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey.toUpperCase()));
+        q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey));
 
         return await q.resolve();
     }
@@ -156,7 +156,6 @@ class BitbucketPRRouter extends ExpressRouter {
             '@totalDeclines': 'number|>=0',
             '++': false
         },
-        '@[]linkedJiraIssues': 'string',
         '++': false
     })
     @PUT({ path: "/:workspace/:repoSlug/:prId/overrides" })
@@ -168,7 +167,6 @@ class BitbucketPRRouter extends ExpressRouter {
             picAccountId?: string;
             points?: number;
             computedData?: Partial<IBitbucketPRComputedData>;
-            linkedJiraIssues?: string[];
         }
     ) {
         const prId = parseInt(sPrId);
@@ -184,10 +182,6 @@ class BitbucketPRRouter extends ExpressRouter {
         if (body.computedData !== undefined) {
             prUpdate['overrides.computedData'] = _.omitBy(body.computedData, _.isNil);
         }
-        if (body.linkedJiraIssues !== undefined) {
-            const normalizedKeys = body.linkedJiraIssues.map(key => key.toUpperCase());
-            prUpdate['overrides.linkedJiraIssues'] = normalizedKeys;
-        }
 
         const pr = await BitbucketPR.findOneAndUpdate(
             { prId, workspace, repoSlug },
@@ -202,17 +196,56 @@ class BitbucketPRRouter extends ExpressRouter {
         if (!pr) {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
         }
-        
-        const linkedIssues = pr?.overrides?.linkedJiraIssues ?? pr?.linkedJiraIssues ?? []
-        if (linkedIssues.length > 0) {
-            await JiraIssue.updateMany(
-                { key: { $in: pr.linkedJiraIssues } },
-                { $set: { syncStatus: JiraIssueSyncStatus.PENDING } }
+
+        BitbucketPRProcessorService.checkToProcess();
+        return { prId };
+    }
+
+    @AuthServ.authUser(USER_ROLE.ADMIN)
+    @ValidBody({
+        '@issueKey': 'string',
+        '++': false
+    })
+    @PUT({ path: "/:workspace/:repoSlug/:prId/activeLinkedIssueKey" })
+    async setActiveLinkedIssue(
+        @Params('workspace') workspace: string,
+        @Params('repoSlug') repoSlug: string,
+        @Params('prId') sPrId: string,
+        @Body() body: { issueKey: string | null }
+    ) {
+        const prId = parseInt(sPrId);
+
+        const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug });
+        if (!pr) {
+            throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
+        }
+
+        await BitbucketPR.updateOne(
+            { prId, workspace, repoSlug },
+            {
+                $set: {
+                    activeLinkedIssueKey: body.issueKey || undefined,
+                    syncStatus: BitbucketPRSyncStatus.PENDING
+                },
+                ...(body.issueKey && !pr.linkedJiraIssues?.includes(body.issueKey) ? {
+                    $push: { linkedJiraIssues: body.issueKey }
+                } : {})
+            }
+        );
+
+        if (pr.activeLinkedIssueKey) {
+            await JiraIssue.updateOne(
+                { key: pr.activeLinkedIssueKey },
+                { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: {
+                    skipHistory: true,
+                    skipChangeLog: true,
+                    skipDevInCharge: true
+                } } }
             );
         }
 
         BitbucketPRProcessorService.checkToProcess();
-        return { prId };
+        return { prId, activeLinkedIssueKey: body.issueKey };
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
@@ -239,63 +272,8 @@ class BitbucketPRRouter extends ExpressRouter {
         return { prId };
     }
 
-    @AuthServ.authUser(USER_ROLE.ADMIN)
-    @DELETE({ path: "/:workspace/:repoSlug/:prId/linked-issues/:issueKey" })
-    async unlinkIssueFromPR(
-        @Params('workspace') workspace: string,
-        @Params('repoSlug') repoSlug: string,
-        @Params('prId') sPrId: string,
-        @Params('issueKey') issueKey: string
-    ) {
-        const prId = parseInt(sPrId);
-        const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug });
-
-        if (!pr) {
-            throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
-        }
-
-        await BitbucketPR.updateOne(
-            { prId, workspace, repoSlug },
-            {
-                $addToSet: {
-                    'overrides.excludedLinkedJiraIssues': issueKey
-                },
-                $pull: {
-                    'linkedJiraIssues': issueKey
-                },
-                $set: {
-                    syncStatus: BitbucketPRSyncStatus.PENDING
-                },
-            }
-        );
-
-        BitbucketPRProcessorService.checkToProcess();
-        return { prId, unlinkedIssueKey: issueKey };
-    }
 
 }
 
-export default new BitbucketPRRouter();export function getPRResponse(pr: IBitbucketPR) {
-    const data = pr.data;
-    return {
-        prId: pr.prId,
-        workspace: pr.workspace,
-        repoSlug: pr.repoSlug,
-        data: data,
-        title: data.title,
-        description: data.description,
-        state: data.state,
-        status: pr.status,
-        author: data.author,
-        createdOn: data.created_on,
-        updatedOn: data.updated_on,
-        sourceBranch: data.source.branch.name,
-        destinationBranch: data.destination.branch.name,
-        computedData: pr.computedData,
-        overrides: pr.overrides,
-        linkedJiraIssues: pr.linkedJiraIssues || [],
-        syncStatus: pr.syncStatus,
-        lastSyncAt: pr.lastSyncAt
-    };
-}
+export default new BitbucketPRRouter();
 

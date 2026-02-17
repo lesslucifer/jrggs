@@ -51,6 +51,10 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
     linkedJiraIssues: string[];
 
     @GQLField()
+    @GQLIdenticalMapping()
+    activeLinkedIssueKey?: string;
+
+    @GQLField()
     title?: string
 
     @GQLField()
@@ -85,17 +89,19 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
             repoSlug: true,
             syncStatus: true,
             status: true,
-            linkedJiraIssues: true
+            linkedJiraIssues: true,
+            activeLinkedIssueKey: true
         };
     }
 
-    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'syncStatus', 'q']) })
+    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'activeLinkedIssueKey', 'syncStatus', 'q']) })
     static async rootResolve(query: GQLQuery<GQLBitbucketPR>) {
         const prIds = query.filter.get('prId').batch<string>().map(id => parseInt(id));
         const workspaces = query.filter.get('workspace').batch<string>();
         const repoSlugs = query.filter.get('repoSlug').batch<string>();
         const statuses = query.filter.get('status').batch<string>();
         const linkedJiraIssuesFilter = query.filter.get('linkedJiraIssues').batch<string>();
+        const activeLinkedIssueKeyFilter = query.filter.get('activeLinkedIssueKey').first<string>();
         const syncStatuses = query.filter.get('syncStatus').batch<string>();
         const textQuery = query.filter.get('q').first();
 
@@ -105,6 +111,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
             repoSlug: hera.mongoEqOrIn(repoSlugs),
             status: hera.mongoEqOrIn(statuses),
             linkedJiraIssues: linkedJiraIssuesFilter.length > 0 ? { $in: linkedJiraIssuesFilter.map(k => k.toUpperCase()) } : undefined,
+            activeLinkedIssueKey: activeLinkedIssueKeyFilter ? activeLinkedIssueKeyFilter.toUpperCase() : undefined,
             syncStatus: hera.mongoEqOrIn(syncStatuses),
             ...(textQuery ? { $text: { $search: textQuery } } : {})
         });

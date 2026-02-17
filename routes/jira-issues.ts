@@ -24,6 +24,7 @@ class JiraIssueRouter extends ExpressRouter {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLJiraIssue);
         GQLU.whiteListFilter(q);
 
+        q.select.add('metrics')
         q.filter.add(new GQLFieldFilter('key', key));
         q.options.one = true;
 
@@ -106,7 +107,14 @@ class JiraIssueRouter extends ExpressRouter {
             throw new AppLogicError(`Some users not found: ${notFoundUsers.join(', ')}`, 404);
         }
 
-        await JiraIssue.updateOne({ key }, { $set: { 'extraPoints': _.sortBy(Object.entries(body.extraPoints).map(([uid, ep]) => ({ userId: uid, extraPoints: ep })), 'userId') } });
+        await JiraIssue.updateOne({ key }, { $set: {
+            'extraPoints': _.sortBy(Object.entries(body.extraPoints).map(([uid, ep]) => ({ userId: uid, extraPoints: ep })), 'userId'),
+            syncStatus: JiraIssueSyncStatus.PENDING,
+            syncParams: {
+                skipHistory: true,
+                skipChangeLog: true
+            }
+        } });
 
         return { key, extraPoints: body.extraPoints };
     }

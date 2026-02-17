@@ -65,6 +65,8 @@ export class BitbucketPRProcessorService {
         try {
             this.isProcessing = true;
 
+            const activeLinkedIssueKeys = new Set(prs.map(pr => pr.activeLinkedIssueKey).filter(Boolean));
+
             const itemUpdates = await Promise.all(prs.map(pr => this.processPR(pr)));
 
             const bulkOps = itemUpdates.map(update => ({ updateOne: update }));
@@ -72,10 +74,11 @@ export class BitbucketPRProcessorService {
                 await BitbucketPR.bulkWrite(bulkOps);
             }
 
-            const linkedIssueKeys = new Set(itemUpdates.flatMap(update => (update.update as UpdateFilter<IBitbucketPR>)?.$set?.linkedJiraIssues ?? []));
-            if (linkedIssueKeys.size > 0) {
+            prs.forEach(pr => pr.activeLinkedIssueKey && activeLinkedIssueKeys.add(pr.activeLinkedIssueKey));
+
+            if (activeLinkedIssueKeys.size > 0) {
                 await JiraIssue.updateMany(
-                    { key: { $in: Array.from(linkedIssueKeys) } },
+                    { key: { $in: Array.from(activeLinkedIssueKeys) } },
                     { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: {
                         skipHistory: true,
                         skipChangeLog: true,
@@ -156,11 +159,12 @@ export class BitbucketPRProcessorService {
         let computedData = this.computePRMetrics(pr, activity);
         let picAccountId = pr.data.author?.account_id;
 
-        let linkedJiraIssues = pr.overrides?.linkedJiraIssues ?? extractLinkedJiraIssues({ ...pr, activity, commits });
-        if (pr.overrides?.excludedLinkedJiraIssues?.length > 0) {
-            const excludedSet = new Set(pr.overrides.excludedLinkedJiraIssues.map(k => k.toUpperCase()));
-            linkedJiraIssues = linkedJiraIssues.filter(key => !excludedSet.has(key.toUpperCase()));
+        const linkedJiraIssues = extractLinkedJiraIssues({ ...pr, activity, commits });
+        const activeLinkedIssueKey = pr.activeLinkedIssueKey;
+        if (activeLinkedIssueKey && !linkedJiraIssues.includes(activeLinkedIssueKey)) {
+            linkedJiraIssues.push(activeLinkedIssueKey)
         }
+        linkedJiraIssues.sort()
 
         if (pr.overrides) {
             if (pr.overrides.computedData) {
