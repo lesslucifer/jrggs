@@ -12,6 +12,9 @@ export class GQLJiraIssue extends GQLModel<IJiraIssue, GQLJiraIssue> {
     key: string;
 
     @GQLField()
+    projectKey: string;
+
+    @GQLField()
     syncStatus: JiraIssueSyncStatus;
 
     @GQLField()

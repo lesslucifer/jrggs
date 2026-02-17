@@ -94,6 +94,11 @@ export class IssueProcessorService {
     static async updateIssue(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<UpdateFilter<IJiraIssue>> {
         const update: UpdateFilter<IJiraIssue> = {}
 
+        if (!iss.projectKey) {
+            iss.projectKey = iss.key?.split('-')?.[0] ?? ''
+            update.$set = { ...update.$set, projectKey: iss.projectKey }
+        }
+
         if (!iss?.syncParams?.skipChangeLog) {
             const changelog = await JIRAService.getIssueChangelog(iss.key, iss.changelog.length)
             if (changelog.length > 0) {

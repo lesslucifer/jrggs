@@ -40,6 +40,7 @@ export class SyncNewlyUpdatedIssues {
                 update: {
                     $set: {
                         data: issue.data,
+                        projectKey,
                         syncStatus: JiraIssueSyncStatus.PENDING,
                         lastSyncAt: Date.now()
                     },

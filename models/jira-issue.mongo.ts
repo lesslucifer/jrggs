@@ -78,6 +78,7 @@ export interface IJiraIssueHistoryRecord {
 
 export interface IJiraIssue extends IMongoDocument {
     key: string;
+    projectKey: string;
 
     data: Record<string, any>;
     changelog: IJiraIssueChangelogRecord[];
@@ -128,7 +129,8 @@ const JiraIssue = MongoModel.createCollection<IJiraIssue>('jira_issue', {
         { name: 'completedAt-1', index: { completedAt: -1 } },
         { name: 'data.fields.parent.key-hashed', index: { 'data.fields.parent.key': 'hashed' } },
         { name: 'completedSprint.id-hashed', index: { 'completedSprint.id': 'hashed' } },
-        { name: 'sprintIds', index: { sprintIds: 1 } }
+        { name: 'sprintIds', index: { sprintIds: 1 } },
+        { name: 'projectKey-1', index: { projectKey: 1 } }
     ]
 })
 

@@ -16,7 +16,7 @@ class JiraIssueRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: '/overall'})
     async getOverallReport(@Query() query: any): Promise<IJiraIssueReportRecord[]> {
-        const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
+        const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint', 'project'])
         const issues = await JiraIssue.find(queryObj).toArray()
         return issues.map(iss => {
             const data = new JiraIssueData(iss.data)
@@ -45,7 +45,7 @@ class JiraIssueRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: '/devReviews'})
     async getDevReviewsReport(@Query() query: any) {
-        const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint'])
+        const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint', 'date', 'project'])
         const issues = await JiraIssue.find(queryObj, { projection: { _id: 0, key: 1, metrics: 1 } }).toArray()
 
         const result = issues.reduce((acc, issue) => {
@@ -114,6 +114,10 @@ class JiraIssueRouter extends ExpressRouter {
         
         if (allowedQuery.includes('sprint') && query.sprint) {
             queryObj['completedSprint.id'] = { $in: query.sprint.split(',').map(Number) }
+        }
+
+        if (allowedQuery.includes('project') && query.project) {
+            queryObj.projectKey = { $in: query.project.split(',').map((p: string) => p.trim().toUpperCase()) }
         }
 
         return queryObj

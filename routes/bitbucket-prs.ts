@@ -224,7 +224,7 @@ class BitbucketPRRouter extends ExpressRouter {
             { prId, workspace, repoSlug },
             {
                 $set: {
-                    activeLinkedIssueKey: body.issueKey || undefined,
+                    activeLinkedIssueKey: body.issueKey,
                     syncStatus: BitbucketPRSyncStatus.PENDING
                 },
                 ...(body.issueKey && !pr.linkedJiraIssues?.includes(body.issueKey) ? {

@@ -145,13 +145,13 @@ export class BitbucketPRProcessorService {
         const doesRefreshCommits = pr.syncParams?.refreshCommits;
 
         let activity = pr.activity;
-        if (doesRefreshActivity || pr.activity.length === 0) {
+        if (doesRefreshActivity) {
             activity = await BitbucketService.getPRActivity(pr.workspace, pr.repoSlug, pr.prId);
             update.$set = { ...update.$set, activity };
         }
 
         let commits = pr.commits;
-        if (doesRefreshCommits || pr.commits.length === 0) {
+        if (doesRefreshCommits) {
             commits = await BitbucketService.getPRCommits(pr.workspace, pr.repoSlug, pr.prId);
             update.$set = { ...update.$set, commits };
         }
@@ -160,8 +160,8 @@ export class BitbucketPRProcessorService {
         let picAccountId = pr.data.author?.account_id;
 
         const linkedJiraIssues = extractLinkedJiraIssues({ ...pr, activity, commits });
-        const activeLinkedIssueKey = pr.activeLinkedIssueKey;
-        if (activeLinkedIssueKey && !linkedJiraIssues.includes(activeLinkedIssueKey)) {
+        const activeLinkedIssueKey = pr.activeLinkedIssueKey ?? _.first(linkedJiraIssues);
+        if (_.isNil(activeLinkedIssueKey) && !linkedJiraIssues.includes(activeLinkedIssueKey)) {
             linkedJiraIssues.push(activeLinkedIssueKey)
         }
         linkedJiraIssues.sort()
@@ -178,7 +178,7 @@ export class BitbucketPRProcessorService {
 
         const status = pr.status === 'COMPLETED' ? pr.status : pr.data.state
 
-        update.$set = { ...update.$set, computedData, picAccountId, status, linkedJiraIssues };
+        update.$set = { ...update.$set, computedData, picAccountId, status, activeLinkedIssueKey, linkedJiraIssues };
 
         return update;
     }
