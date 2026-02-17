@@ -241,7 +241,7 @@ class JiraIssueRouter extends ExpressRouter {
     async updateSyncStatusToPending(@Params('key') key: string) {
         const issue = await JiraIssue.findOneAndUpdate(
             { key },
-            { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { refreshHistory: true } } }
+            { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { skipHistory: false } } }
         );
 
         if (!issue) {
@@ -255,7 +255,7 @@ class JiraIssueRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/sync-all" })
     async syncAllIssues() {
-        await JiraIssue.updateMany({}, { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { refreshHistory: true, skipChangeLog: true, skipDevInCharge: true } } });
+        await JiraIssue.updateMany({}, { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: { skipHistory: true, skipChangeLog: true, skipDevInCharge: true } } });
         IssueProcessorService.checkToProcess()
     }
 }

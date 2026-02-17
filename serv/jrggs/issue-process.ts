@@ -4,7 +4,7 @@ import schedule from 'node-schedule';
 import HC from "../../glob/hc";
 import JiraIssueOverrides, { IJiraIssueOverrides } from "../../models/jira-issue-overrides.mongo";
 import JiraIssue, { IJiraCodeReview, IJiraIssue, IJiraIssueChangelogRecord, IJiraIssueHistoryRecord, IJiraIssueUserMetrics, IJiraRejection, IJiraUserInfo, JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
-import BitbucketPR from "../../models/bitbucket-pr.mongo";
+import BitbucketPR, { IBitbucketPR } from "../../models/bitbucket-pr.mongo";
 import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
@@ -94,8 +94,6 @@ export class IssueProcessorService {
     static async updateIssue(iss: IJiraIssue, overrides?: IJiraIssueOverrides): Promise<UpdateFilter<IJiraIssue>> {
         const update: UpdateFilter<IJiraIssue> = {}
 
-        const doesRefreshHistory = iss.syncParams?.refreshHistory
-
         if (!iss?.syncParams?.skipChangeLog) {
             const changelog = await JIRAService.getIssueChangelog(iss.key, iss.changelog.length)
             if (changelog.length > 0) {
@@ -111,7 +109,7 @@ export class IssueProcessorService {
                     update.$set = { ...update.$set, completedAt: new Date(finishLog.created).getTime(), completedSprint: new JiraIssueData(iss.data).lastSprint }
                 }
     
-                if (!doesRefreshHistory) {
+                if (!!iss.syncParams?.skipHistory) {
                     const history = this.computeIssueHistoryRecords(changelog, _.last(iss.history))
                     if (history.length > 0) {
                         iss.history ??= []
@@ -123,15 +121,11 @@ export class IssueProcessorService {
             }
         }
 
-        if (doesRefreshHistory) {
+        if (!iss.syncParams?.skipHistory) {
             const history = this.computeIssueHistoryRecords(iss.changelog)
             iss.history = history
             update.$set = { ...update.$set, history: history, current: _.last(history) }
         }
-
-        const inChargeDevs = await this.computeInChargeDevs(iss)
-        iss.inChargeDevs = inChargeDevs
-        update.$set = { ...update.$set, inChargeDevs }
 
         const { codeReviews, rejections } = this.computeCodeReviewsAndRejections(iss, overrides)
 
@@ -156,7 +150,13 @@ export class IssueProcessorService {
         iss.extraData = { ...iss.extraData, storyPoints }
         update.$set = { ...update.$set, 'extraData.storyPoints': storyPoints }
 
-        const metrics = this.computeIssueMetrics(iss)
+        const linkedPRs = await BitbucketPR.find({ linkedJiraIssues: iss.key }).toArray()
+
+        const inChargeDevs = await this.computeInChargeDevs(iss, linkedPRs)
+        iss.inChargeDevs = inChargeDevs
+        update.$set = { ...update.$set, inChargeDevs }
+
+        const metrics = this.computeIssueMetrics(iss, linkedPRs)
         iss.metrics = metrics
         update.$set = { ...update.$set, metrics }
 
@@ -167,9 +167,7 @@ export class IssueProcessorService {
         return update
     }
 
-    private static async computeInChargeDevs(iss: IJiraIssue): Promise<string[]> {
-        const linkedPRs = await BitbucketPR.find({ linkedJiraIssues: iss.key }).toArray()
-
+    private static async computeInChargeDevs(iss: IJiraIssue, linkedPRs: IBitbucketPR[]): Promise<string[]> {
         const userIds = new Set<string>([
             iss.data.fields?.assignee?.accountId,
             ...(iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId),
@@ -289,13 +287,22 @@ export class IssueProcessorService {
         }))
     }
 
-    private static computeIssueMetrics(iss: IJiraIssue): IJiraIssueUserMetrics {
+    private static computeIssueMetrics(iss: IJiraIssue, linkedPRs: IBitbucketPR[]): IJiraIssueUserMetrics {
         const storyPoints = _.chain(iss.extraData.storyPoints).keyBy('userId').mapValues('storyPoints').value()
         const nRejections = _.countBy((iss.extraData?.rejections ?? []).filter(rej => rej.isActive).map(rej => rej.userId))
         const nCodeReviews = _.countBy((iss.extraData?.codeReviews ?? []).filter(cr => cr.isActive).map(cr => cr.userId))
         const defects = _.countBy((iss.extraData?.defects ?? []).filter(d => d.isActive).map(d => d.userId))
+        const prMap = _.groupBy(linkedPRs, pr => pr.overrides?.picAccountId ?? pr.data.author?.account_id)
+        const extraPointsMap = _.keyBy(iss.extraPoints ?? [], 'userId')
 
-        const uids = new Set([...Object.keys(storyPoints), ...Object.keys(nRejections), ...Object.keys(nCodeReviews), ...Object.keys(defects)])
+        const uids = new Set([
+            ...Object.keys(storyPoints),
+            ...Object.keys(nRejections),
+            ...Object.keys(nCodeReviews),
+            ...Object.keys(defects),
+            ...Object.keys(prMap),
+            ...Object.keys(extraPointsMap),
+        ])
 
         return Array.from(uids).reduce((metrics, uid) => {
             metrics[uid] = {
@@ -303,6 +310,8 @@ export class IssueProcessorService {
                 nRejections: nRejections[uid] ?? 0,
                 nCodeReviews: nCodeReviews[uid] ?? 0,
                 defects: defects[uid] ?? 0,
+                nPRs: prMap[uid]?.length ?? 0,
+                prPoints: _.sumBy(prMap[uid] ?? [], pr => pr.overrides?.points ?? 0) + (extraPointsMap[uid]?.extraPoints ?? 0)
             }
             return metrics
         }, {} as IJiraIssueUserMetrics)

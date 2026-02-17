@@ -5,6 +5,7 @@ import HC from "../../glob/hc";
 import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedData } from "../../models/bitbucket-pr.mongo";
 import { AsyncLockExt, Locked } from "../../utils/async-lock-ext";
 import { BitbucketService } from "../bitbucket";
+import JiraIssue, { JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 
 function extractJiraIssueKeys(text: string, projectKeys: string[]): string[] {
     if (!text || !projectKeys || projectKeys.length === 0) {
@@ -69,6 +70,18 @@ export class BitbucketPRProcessorService {
             const bulkOps = itemUpdates.map(update => ({ updateOne: update }));
             if (bulkOps.length > 0) {
                 await BitbucketPR.bulkWrite(bulkOps);
+            }
+
+            const linkedIssueKeys = new Set(itemUpdates.flatMap(update => (update.update as UpdateFilter<IBitbucketPR>)?.$set?.linkedJiraIssues ?? []));
+            if (linkedIssueKeys.size > 0) {
+                await JiraIssue.updateMany(
+                    { key: { $in: Array.from(linkedIssueKeys) } },
+                    { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: {
+                        skipHistory: true,
+                        skipChangeLog: true,
+                        skipDevInCharge: true
+                    } } }
+                );
             }
         } catch (error) {
             console.error('[BitbucketPRProcessor]', error);

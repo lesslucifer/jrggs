@@ -51,6 +51,8 @@ export type IJiraIssueMetrics = {
     nRejections: number;
     defects: number;
     nCodeReviews: number;
+    nPRs: number;
+    prPoints: number;
 }
 
 export type IJiraIssueUserMetrics = Record<string, IJiraIssueMetrics>
@@ -115,7 +117,7 @@ export interface IJiraIssue extends IMongoDocument {
     syncParams?: {
         skipChangeLog?: boolean;
         skipDevInCharge?: boolean;
-        refreshHistory: boolean;
+        skipHistory: boolean;
     };
 }
 
