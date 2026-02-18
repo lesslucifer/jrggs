@@ -142,8 +142,8 @@ export interface IBitbucketPR extends IMongoDocument {
     lastSyncAt: number;
     syncStatus: BitbucketPRSyncStatus;
     syncParams?: {
-        refreshActivity?: boolean;
-        refreshCommits?: boolean;
+        skipActivity?: boolean;
+        skipCommits?: boolean;
     };
 }
 

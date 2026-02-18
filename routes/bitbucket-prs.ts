@@ -59,7 +59,7 @@ class BitbucketPRRouter extends ExpressRouter {
     @DocGQLResponse(GQLBitbucketPR)
     async getUnresolvedMergedPRs(@Query() query: Record<string, string>) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
-        GQLU.whiteListFilter(q, 'workspace', 'repoSlug', 'q');
+        GQLU.whiteListFilter(q, 'workspace', 'repoSlug', 'author_id', 'q');
 
         q.filter.add(new GQLFieldFilter('unresolved', true));
 
@@ -75,7 +75,7 @@ class BitbucketPRRouter extends ExpressRouter {
         @Query() query: Record<string, string>
     ) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
-        GQLU.whiteListFilter(q, 'status', 'q');
+        GQLU.whiteListFilter(q, 'status', 'author_id', 'q');
 
         q.filter.add(new GQLFieldFilter('workspace', workspace));
         q.filter.add(new GQLFieldFilter('repoSlug', repoSlug));
@@ -135,7 +135,7 @@ class BitbucketPRRouter extends ExpressRouter {
     async updateSyncStatusToPending(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') prId: string) {
         const pr = await BitbucketPR.findOneAndUpdate(
             { prId, workspace, repoSlug },
-            { $set: { syncStatus: BitbucketPRSyncStatus.PENDING, syncParams: { refreshActivity: true, refreshCommits: true } } }
+            { $set: { syncStatus: BitbucketPRSyncStatus.PENDING } }
         );
 
         if (!pr) {
@@ -151,7 +151,7 @@ class BitbucketPRRouter extends ExpressRouter {
     async syncAllPRs(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string) {
         const result = await BitbucketPR.updateMany(
             { workspace, repoSlug },
-            { $set: { syncStatus: BitbucketPRSyncStatus.PENDING, syncParams: { refreshActivity: false, refreshCommits: false } } }
+            { $set: { syncStatus: BitbucketPRSyncStatus.PENDING, syncParams: { skipActivity: true, skipCommits: true } } }
         );
 
         BitbucketPRProcessorService.checkToProcess();

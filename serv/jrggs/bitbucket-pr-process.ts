@@ -141,8 +141,8 @@ export class BitbucketPRProcessorService {
     static async updatePR(pr: IBitbucketPR) {
         const update: UpdateFilter<IBitbucketPR> = { $set: {} }
 
-        const doesRefreshActivity = pr.syncParams?.refreshActivity;
-        const doesRefreshCommits = pr.syncParams?.refreshCommits;
+        const doesRefreshActivity = !pr.syncParams?.skipActivity
+        const doesRefreshCommits = pr.syncParams?.skipCommits
 
         if (doesRefreshActivity) {
             const activity = await BitbucketService.getPRActivity(pr.workspace, pr.repoSlug, pr.prId);

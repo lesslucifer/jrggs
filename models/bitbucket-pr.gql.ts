@@ -94,7 +94,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         };
     }
 
-    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'activeLinkedIssueKey', 'syncStatus', 'q']) })
+    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'activeLinkedIssueKey', 'syncStatus', 'author_id', 'q']) })
     static async rootResolve(query: GQLQuery<GQLBitbucketPR>) {
         const prIds = query.filter.get('prId').batch<string>()
         const workspaces = query.filter.get('workspace').batch<string>();
@@ -103,6 +103,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         const linkedJiraIssuesFilter = query.filter.get('linkedJiraIssues').batch<string>();
         const activeLinkedIssueKeyFilter = query.filter.get('activeLinkedIssueKey').first<string>();
         const syncStatuses = query.filter.get('syncStatus').batch<string>();
+        const authorAccountIds = query.filter.get('author_id').batch<string>();
         const textQuery = query.filter.get('q').first();
 
         const mongoQuery = GQLU.notEmpty({
@@ -113,6 +114,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
             linkedJiraIssues: linkedJiraIssuesFilter.length > 0 ? { $in: linkedJiraIssuesFilter.map(k => k.toUpperCase()) } : undefined,
             activeLinkedIssueKey: activeLinkedIssueKeyFilter ? activeLinkedIssueKeyFilter.toUpperCase() : undefined,
             syncStatus: hera.mongoEqOrIn(syncStatuses),
+            'data.author.account_id': hera.mongoEqOrIn(authorAccountIds),
             ...(textQuery ? { $text: { $search: textQuery } } : {})
         });
 
@@ -127,16 +129,18 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         return result;
     }
 
-    @GQLResolver({ matches: GQLU.byFields(['unresolved'], ['workspace', 'repoSlug', 'q']) })
+    @GQLResolver({ matches: GQLU.byFields(['unresolved'], ['workspace', 'repoSlug', 'author_id', 'q']) })
     static async unresolvedMergedResolve(query: GQLQuery<GQLBitbucketPR>) {
         const workspaces = query.filter.get('workspace').batch<string>();
         const repoSlugs = query.filter.get('repoSlug').batch<string>();
+        const authorAccountIds = query.filter.get('author_id').batch<string>();
         const textQuery = query.filter.get('q').first();
 
         const mongoQuery = GQLU.notEmpty({
             status: 'MERGED',
             workspace: hera.mongoEqOrIn(workspaces),
             repoSlug: hera.mongoEqOrIn(repoSlugs),
+            'data.author.account_id': hera.mongoEqOrIn(authorAccountIds),
             $or: [
                 { 'overrides.points': { $exists: false } },
                 { 'overrides.points': null },
