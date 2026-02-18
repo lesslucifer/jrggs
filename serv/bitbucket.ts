@@ -76,7 +76,7 @@ export class BitbucketService {
         return prs;
     }
 
-    static async getPRActivity(workspace: string, repoSlug: string, prId: number): Promise<any[]> {
+    static async getPRActivity(workspace: string, repoSlug: string, prId: string): Promise<any[]> {
         const activities: any[] = [];
         let nextPageUrl: string | undefined;
         let pageCount = 0;
@@ -120,7 +120,7 @@ export class BitbucketService {
         }
     }
 
-    static async getPRCommits(workspace: string, repoSlug: string, prId: number): Promise<any[]> {
+    static async getPRCommits(workspace: string, repoSlug: string, prId: string): Promise<any[]> {
         const commits: any[] = [];
         let nextPageUrl: string | undefined;
         let pageCount = 0;

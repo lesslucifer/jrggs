@@ -117,7 +117,7 @@ export interface IBitbucketPRComputedData {
 }
 
 export interface IBitbucketPR extends IMongoDocument {
-    prId: number;
+    prId: string;
     workspace: string;
     repoSlug: string;
 

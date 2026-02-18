@@ -36,7 +36,7 @@ export class SyncBitbucketPRs {
 
         const bulkOps: AnyBulkWriteOperation<IBitbucketPR>[] = prs.map(pr => ({
             updateOne: {
-                filter: { prId: pr.id, workspace, repoSlug },
+                filter: { prId: String(pr.id), workspace, repoSlug },
                 update: {
                     $set: {
                         data: pr,
@@ -44,7 +44,7 @@ export class SyncBitbucketPRs {
                         lastSyncAt: Date.now()
                     },
                     $setOnInsert: {
-                        prId: pr.id,
+                        prId: String(pr.id),
                         workspace,
                         repoSlug,
                         activity: [],

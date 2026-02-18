@@ -132,8 +132,7 @@ class BitbucketPRRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @PUT({ path: "/:workspace/:repoSlug/:prId/sync-status/PENDING" })
-    async updateSyncStatusToPending(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') sPrId: string) {
-        const prId = parseInt(sPrId);
+    async updateSyncStatusToPending(@Params('workspace') workspace: string, @Params('repoSlug') repoSlug: string, @Params('prId') prId: string) {
         const pr = await BitbucketPR.findOneAndUpdate(
             { prId, workspace, repoSlug },
             { $set: { syncStatus: BitbucketPRSyncStatus.PENDING, syncParams: { refreshActivity: true, refreshCommits: true } } }
@@ -175,14 +174,13 @@ class BitbucketPRRouter extends ExpressRouter {
     async updatePROverrides(
         @Params('workspace') workspace: string,
         @Params('repoSlug') repoSlug: string,
-        @Params('prId') sPrId: string,
+        @Params('prId') prId: string,
         @Body() body: {
             picAccountId?: string;
             points?: number;
             computedData?: Partial<IBitbucketPRComputedData>;
         }
     ) {
-        const prId = parseInt(sPrId);
 
         const prUpdate: any = {};
         if (body.picAccountId !== undefined) {
@@ -222,11 +220,9 @@ class BitbucketPRRouter extends ExpressRouter {
     async setActiveLinkedIssue(
         @Params('workspace') workspace: string,
         @Params('repoSlug') repoSlug: string,
-        @Params('prId') sPrId: string,
+        @Params('prId') prId: string,
         @Body() body: { issueKey: string | null }
     ) {
-        const prId = parseInt(sPrId);
-
         const pr = await BitbucketPR.findOne({ prId, workspace, repoSlug });
         if (!pr) {
             throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);

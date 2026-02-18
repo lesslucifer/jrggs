@@ -9,7 +9,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
     _id: string;
 
     @GQLField()
-    prId: number;
+    prId: string;
 
     @GQLField()
     workspace: string;
@@ -96,7 +96,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
 
     @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'activeLinkedIssueKey', 'syncStatus', 'q']) })
     static async rootResolve(query: GQLQuery<GQLBitbucketPR>) {
-        const prIds = query.filter.get('prId').batch<string>().map(id => parseInt(id));
+        const prIds = query.filter.get('prId').batch<string>()
         const workspaces = query.filter.get('workspace').batch<string>();
         const repoSlugs = query.filter.get('repoSlug').batch<string>();
         const statuses = query.filter.get('status').batch<string>();
