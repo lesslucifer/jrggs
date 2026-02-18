@@ -49,7 +49,7 @@ class BitbucketPRRouter extends ExpressRouter {
         GQLU.whiteListFilter(q, 'q');
 
         q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey));
-        q.filter.add(new GQLFieldFilter('status', ['MERGED']))
+        q.filter.add(new GQLFieldFilter('status', 'MERGED'))
 
         return await q.resolve();
     }

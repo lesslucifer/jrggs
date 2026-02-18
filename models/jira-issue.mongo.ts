@@ -53,7 +53,6 @@ export type IJiraIssueMetrics = {
     nCodeReviews: number;
     nPRs: number;
     prPoints: number;
-    nPRComments: number;
 }
 
 export type IJiraIssueUserMetrics = Record<string, IJiraIssueMetrics>
@@ -90,6 +89,7 @@ export interface IJiraIssue extends IMongoDocument {
     completedAt?: number;
     completedSprint?: IJiraIssueSprint;
     metrics: IJiraIssueUserMetrics;
+    nPRReviewsMetric?: Record<string, number>;
     sprintIds?: number[];
     inChargeDevs?: string[];
 

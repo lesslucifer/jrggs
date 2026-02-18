@@ -156,12 +156,12 @@ export class BitbucketPRProcessorService {
             update.$set = { ...update.$set, commits };
         }
 
-        const computedData = { ...this.computePRMetrics(pr), ...pr.overrides.computedData };
-        let picAccountId = pr.data.author?.account_id ?? pr.overrides.picAccountId;
+        const computedData = { ...this.computePRMetrics(pr), ...pr.overrides?.computedData };
+        let picAccountId = pr.data.author?.account_id ?? pr.overrides?.picAccountId;
 
         const linkedJiraIssues = extractLinkedJiraIssues(pr);
         const activeLinkedIssueKey = pr.activeLinkedIssueKey ?? _.first(linkedJiraIssues);
-        if (_.isNil(activeLinkedIssueKey) && !linkedJiraIssues.includes(activeLinkedIssueKey)) {
+        if (!_.isNil(activeLinkedIssueKey) && !linkedJiraIssues.includes(activeLinkedIssueKey)) {
             linkedJiraIssues.push(activeLinkedIssueKey)
         }
         linkedJiraIssues.sort()

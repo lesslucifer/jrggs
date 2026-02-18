@@ -164,6 +164,9 @@ export class IssueProcessorService {
         iss.metrics = metrics
         update.$set = { ...update.$set, metrics }
 
+        iss.nPRReviewsMetric = _(linkedPRs.flatMap(pr => Object.entries(pr.computedData?.reviewerCommentCounts ?? {}))).groupBy(c => c[0]).mapValues(cmts => _.sumBy(cmts, c => c[1])).value()
+        update.$set = { ...update.$set, nPRReviewsMetric: iss.nPRReviewsMetric }
+
         const sprintIds = this.computeIssueSprintIds(iss)
         iss.sprintIds = sprintIds
         update.$set = { ...update.$set, sprintIds }
@@ -298,7 +301,6 @@ export class IssueProcessorService {
         const defects = _.countBy((iss.extraData?.defects ?? []).filter(d => d.isActive).map(d => d.userId))
         const prMap = _.groupBy(linkedPRs, pr => pr.overrides?.picAccountId ?? pr.data.author?.account_id)
         const extraPointsMap = _.keyBy(iss.extraPoints ?? [], 'userId')
-        const prCommentCounts = _(linkedPRs.flatMap(pr => Object.entries(pr.computedData?.reviewerCommentCounts ?? {}))).groupBy(c => c[0]).mapValues(cmts => _.sumBy(cmts, c => c[1])).value()
 
         const uids = new Set([
             ...Object.keys(storyPoints),
@@ -307,7 +309,6 @@ export class IssueProcessorService {
             ...Object.keys(defects),
             ...Object.keys(prMap),
             ...Object.keys(extraPointsMap),
-            ...Object.keys(prCommentCounts),
         ])
 
         return Array.from(uids).reduce((metrics, uid) => {
@@ -317,8 +318,7 @@ export class IssueProcessorService {
                 nCodeReviews: nCodeReviews[uid] ?? 0,
                 defects: defects[uid] ?? 0,
                 nPRs: prMap[uid]?.length ?? 0,
-                prPoints: _.sumBy(prMap[uid] ?? [], pr => pr.overrides?.points ?? 0) + (extraPointsMap[uid]?.extraPoints ?? 0),
-                nPRComments: prCommentCounts[uid] ?? 0,
+                prPoints: _.sumBy(prMap[uid] ?? [], pr => pr.overrides?.points ?? 0) + (extraPointsMap[uid]?.extraPoints ?? 0)
             }
             return metrics
         }, {} as IJiraIssueUserMetrics)

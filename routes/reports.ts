@@ -46,7 +46,7 @@ class JiraIssueRouter extends ExpressRouter {
     @GET({ path: '/devReviews'})
     async getDevReviewsReport(@Query() query: any) {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint', 'date', 'project'])
-        const issues = await JiraIssue.find(queryObj, { projection: { _id: 0, key: 1, metrics: 1 } }).toArray()
+        const issues = await JiraIssue.find(queryObj, { projection: { _id: 0, key: 1, metrics: 1, nPRReviewsMetric: 1 } }).toArray()
 
         const result = issues.reduce((acc, issue) => {
             Object.entries(issue.metrics).forEach(([userId, metrics]) => {
@@ -61,7 +61,8 @@ class JiraIssueRouter extends ExpressRouter {
                             defects: 0,
                             nCodeReviews: 0,
                             nPRs: 0,
-                            prPoints: 0
+                            prPoints: 0,
+                            nPRComments: 0
                         }
                     }
                 }
@@ -75,6 +76,11 @@ class JiraIssueRouter extends ExpressRouter {
                 acc[key].metrics.prPoints += metrics.prPoints
             })
 
+            Object.entries(issue.nPRReviewsMetric ?? {}).forEach(([userId, count]) => {
+                if (acc[userId]) {
+                    acc[userId].metrics.nPRComments += count
+                }
+            })
             return acc
         }, {} as Record<string, {
             user: string,
@@ -85,7 +91,8 @@ class JiraIssueRouter extends ExpressRouter {
                 defects: number,
                 nCodeReviews: number,
                 nPRs: number,
-                prPoints: number
+                prPoints: number,
+                nPRComments: number
             }
         }>)
 
