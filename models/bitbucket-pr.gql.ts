@@ -127,6 +127,34 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         return result;
     }
 
+    @GQLResolver({ matches: GQLU.byFields(['unresolved'], ['workspace', 'repoSlug', 'q']) })
+    static async unresolvedMergedResolve(query: GQLQuery<GQLBitbucketPR>) {
+        const workspaces = query.filter.get('workspace').batch<string>();
+        const repoSlugs = query.filter.get('repoSlug').batch<string>();
+        const textQuery = query.filter.get('q').first();
+
+        const mongoQuery = GQLU.notEmpty({
+            status: 'MERGED',
+            workspace: hera.mongoEqOrIn(workspaces),
+            repoSlug: hera.mongoEqOrIn(repoSlugs),
+            $or: [
+                { 'overrides.points': { $exists: false } },
+                { 'overrides.points': null },
+                { activeLinkedIssueKey: { $exists: false } },
+                { activeLinkedIssueKey: { $in: [null, ''] } }
+            ],
+            ...(textQuery ? { $text: { $search: textQuery } } : {})
+        });
+
+        return await hera.gqlMongoQueryPagination(
+            GQLBitbucketPR,
+            query,
+            BitbucketPR,
+            mongoQuery,
+            { defaultLimit: 100, maxLimit: 500 }
+        );
+    }
+
     @GQLMapper({ fields: ['title', 'description', 'state', 'author', 'createdOn', 'updatedOn', 'sourceBranch', 'destinationBranch'], addRawFields: ['data'] })
     static async mapDataFields(query: GQLQuery<GQLBitbucketPR>, models: GQLBitbucketPR[]) {
         models.forEach(model => {

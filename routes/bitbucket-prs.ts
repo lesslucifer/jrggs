@@ -55,6 +55,18 @@ class BitbucketPRRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/unresolved-merged" })
+    @DocGQLResponse(GQLBitbucketPR)
+    async getUnresolvedMergedPRs(@Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q, 'workspace', 'repoSlug', 'q');
+
+        q.filter.add(new GQLFieldFilter('unresolved', true));
+
+        return await q.resolve();
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug" })
     @DocGQLResponse(GQLBitbucketPR)
     async getPRsByRepo(
