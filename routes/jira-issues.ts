@@ -18,6 +18,16 @@ class JiraIssueRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/" })
+    @DocGQLResponse(GQLJiraIssue)
+    async getIssues(@Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLJiraIssue);
+        GQLU.whiteListFilter(q, 'key');
+
+        return await q.resolve();
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:key/metrics" })
     @DocGQLResponse(GQLJiraIssue)
     async getIssueMetrics(@Params('key') key: string, @Query() query: Record<string, string>) {
@@ -25,7 +35,7 @@ class JiraIssueRouter extends ExpressRouter {
         GQLU.whiteListFilter(q);
 
         q.select.add('metrics')
-        q.filter.add(new GQLFieldFilter('key', key));
+        q.filter.add(new GQLFieldFilter('key', key.split(',')));
         q.options.one = true;
 
         return await q.resolve();

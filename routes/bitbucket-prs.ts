@@ -49,6 +49,7 @@ class BitbucketPRRouter extends ExpressRouter {
         GQLU.whiteListFilter(q, 'q');
 
         q.filter.add(new GQLFieldFilter('linkedJiraIssues', issueKey));
+        q.filter.add(new GQLFieldFilter('status', ['MERGED']))
 
         return await q.resolve();
     }
@@ -176,7 +177,6 @@ class BitbucketPRRouter extends ExpressRouter {
             prUpdate['overrides.picAccountId'] = body.picAccountId;
         }
         if (body.points !== undefined) {
-            prUpdate['status'] = 'COMPLETED'
             prUpdate['overrides.points'] = body.points;
         }
         if (body.computedData !== undefined) {
@@ -247,32 +247,6 @@ class BitbucketPRRouter extends ExpressRouter {
         BitbucketPRProcessorService.checkToProcess();
         return { prId, activeLinkedIssueKey: body.issueKey };
     }
-
-    @AuthServ.authUser(USER_ROLE.ADMIN)
-    @PUT({ path: "/:workspace/:repoSlug/:prId/status/COMPLETED" })
-    async setPRCompleted(
-        @Params('workspace') workspace: string,
-        @Params('repoSlug') repoSlug: string,
-        @Params('prId') sPrId: string
-    ) {
-        const prId = parseInt(sPrId);
-        const pr = await BitbucketPR.findOneAndUpdate(
-            { prId, workspace, repoSlug },
-            {
-                $set: {
-                    status: 'COMPLETED'
-                }
-            }
-        );
-
-        if (!pr) {
-            throw new AppLogicError(`PR ${prId} not found in ${workspace}/${repoSlug}`, 404);
-        }
-
-        return { prId };
-    }
-
-
 }
 
 export default new BitbucketPRRouter();

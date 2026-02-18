@@ -113,6 +113,7 @@ export interface IBitbucketPRComputedData {
     reviewersRequestedChanges: string[];
     firstReviewTime?: number;
     reviewCycleTime?: number;
+    reviewerCommentCounts?: Record<string, number>;
 }
 
 export interface IBitbucketPR extends IMongoDocument {

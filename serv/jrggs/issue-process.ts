@@ -147,6 +147,11 @@ export class IssueProcessorService {
         }
         update.$set = { ...update.$set, 'extraData.codeReviews': codeReviews, 'extraData.rejections': rejections }
 
+        const linkedPRs = await BitbucketPR.find({ activeLinkedIssueKey: iss.key, status: {$in: ['MERGED']} }).toArray()
+        const inChargeDevs = await this.computeInChargeDevs(iss, linkedPRs)
+        iss.inChargeDevs = inChargeDevs
+        update.$set = { ...update.$set, inChargeDevs }
+
         const defects = await this.computeDefects(iss, overrides)
         iss.extraData = { ...iss.extraData, defects }
         update.$set = { ...update.$set, 'extraData.defects': defects }
@@ -154,12 +159,6 @@ export class IssueProcessorService {
         const storyPoints = this.computeStoryPoints(iss, overrides)
         iss.extraData = { ...iss.extraData, storyPoints }
         update.$set = { ...update.$set, 'extraData.storyPoints': storyPoints }
-
-        const linkedPRs = await BitbucketPR.find({ activeLinkedIssueKey: iss.key }).toArray()
-
-        const inChargeDevs = await this.computeInChargeDevs(iss, linkedPRs)
-        iss.inChargeDevs = inChargeDevs
-        update.$set = { ...update.$set, inChargeDevs }
 
         const metrics = this.computeIssueMetrics(iss, linkedPRs)
         iss.metrics = metrics
@@ -261,7 +260,7 @@ export class IssueProcessorService {
     }
 
     private static computeStoryPoints(iss: IJiraIssue, overrides?: IJiraIssueOverrides): { userId: string; storyPoints: number }[] {
-        if (!_.isEmpty(overrides?.storyPoints)) {
+        if (overrides?.storyPoints) {
             return Object.entries(overrides.storyPoints).map(([uid, sp]) => ({ userId: uid, storyPoints: sp })).filter(sp => sp.storyPoints > 0)
         }
 
@@ -299,6 +298,7 @@ export class IssueProcessorService {
         const defects = _.countBy((iss.extraData?.defects ?? []).filter(d => d.isActive).map(d => d.userId))
         const prMap = _.groupBy(linkedPRs, pr => pr.overrides?.picAccountId ?? pr.data.author?.account_id)
         const extraPointsMap = _.keyBy(iss.extraPoints ?? [], 'userId')
+        const prCommentCounts = _(linkedPRs.flatMap(pr => Object.entries(pr.computedData?.reviewerCommentCounts ?? {}))).groupBy(c => c[0]).mapValues(cmts => _.sumBy(cmts, c => c[1])).value()
 
         const uids = new Set([
             ...Object.keys(storyPoints),
@@ -307,6 +307,7 @@ export class IssueProcessorService {
             ...Object.keys(defects),
             ...Object.keys(prMap),
             ...Object.keys(extraPointsMap),
+            ...Object.keys(prCommentCounts),
         ])
 
         return Array.from(uids).reduce((metrics, uid) => {
@@ -316,7 +317,8 @@ export class IssueProcessorService {
                 nCodeReviews: nCodeReviews[uid] ?? 0,
                 defects: defects[uid] ?? 0,
                 nPRs: prMap[uid]?.length ?? 0,
-                prPoints: _.sumBy(prMap[uid] ?? [], pr => pr.overrides?.points ?? 0) + (extraPointsMap[uid]?.extraPoints ?? 0)
+                prPoints: _.sumBy(prMap[uid] ?? [], pr => pr.overrides?.points ?? 0) + (extraPointsMap[uid]?.extraPoints ?? 0),
+                nPRComments: prCommentCounts[uid] ?? 0,
             }
             return metrics
         }, {} as IJiraIssueUserMetrics)

@@ -53,6 +53,7 @@ export type IJiraIssueMetrics = {
     nCodeReviews: number;
     nPRs: number;
     prPoints: number;
+    nPRComments: number;
 }
 
 export type IJiraIssueUserMetrics = Record<string, IJiraIssueMetrics>

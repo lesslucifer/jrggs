@@ -6,6 +6,7 @@ import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedD
 import { AsyncLockExt, Locked } from "../../utils/async-lock-ext";
 import { BitbucketService } from "../bitbucket";
 import JiraIssue, { JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
+import { IssueProcessorService } from "./issue-process";
 
 function extractJiraIssueKeys(text: string, projectKeys: string[]): string[] {
     if (!text || !projectKeys || projectKeys.length === 0) {
@@ -35,13 +36,11 @@ function extractLinkedJiraIssues(pr: IBitbucketPR): string[] {
     const titleKeys = extractJiraIssueKeys(pr.data.title || '', projectKeys);
     titleKeys.forEach(key => allKeys.add(key));
 
-    const descriptionKeys = extractJiraIssueKeys(pr.data.description || '', projectKeys);
-    descriptionKeys.forEach(key => allKeys.add(key));
-
-    if (pr.commits && pr.commits.length > 0) {
-        for (const commit of pr.commits) {
-            const commitKeys = extractJiraIssueKeys(commit.message || '', projectKeys);
-            commitKeys.forEach(key => allKeys.add(key));
+    if (pr.activity && pr.activity.length > 0) {
+        for (const activity of pr.activity) {
+            const commentText = activity.comment?.content?.raw || '';
+            const commentKeys = extractJiraIssueKeys(commentText, projectKeys);
+            commentKeys.forEach(key => allKeys.add(key));
         }
     }
 
@@ -85,6 +84,7 @@ export class BitbucketPRProcessorService {
                         skipDevInCharge: true
                     } } }
                 );
+                IssueProcessorService.checkToProcess()
             }
         } catch (error) {
             console.error('[BitbucketPRProcessor]', error);
@@ -144,46 +144,37 @@ export class BitbucketPRProcessorService {
         const doesRefreshActivity = pr.syncParams?.refreshActivity;
         const doesRefreshCommits = pr.syncParams?.refreshCommits;
 
-        let activity = pr.activity;
         if (doesRefreshActivity) {
-            activity = await BitbucketService.getPRActivity(pr.workspace, pr.repoSlug, pr.prId);
+            const activity = await BitbucketService.getPRActivity(pr.workspace, pr.repoSlug, pr.prId);
+            pr.activity = activity
             update.$set = { ...update.$set, activity };
         }
 
-        let commits = pr.commits;
         if (doesRefreshCommits) {
-            commits = await BitbucketService.getPRCommits(pr.workspace, pr.repoSlug, pr.prId);
+            const commits = await BitbucketService.getPRCommits(pr.workspace, pr.repoSlug, pr.prId);
+            pr.commits = commits
             update.$set = { ...update.$set, commits };
         }
 
-        let computedData = this.computePRMetrics(pr, activity);
-        let picAccountId = pr.data.author?.account_id;
+        const computedData = { ...this.computePRMetrics(pr), ...pr.overrides.computedData };
+        let picAccountId = pr.data.author?.account_id ?? pr.overrides.picAccountId;
 
-        const linkedJiraIssues = extractLinkedJiraIssues({ ...pr, activity, commits });
+        const linkedJiraIssues = extractLinkedJiraIssues(pr);
         const activeLinkedIssueKey = pr.activeLinkedIssueKey ?? _.first(linkedJiraIssues);
         if (_.isNil(activeLinkedIssueKey) && !linkedJiraIssues.includes(activeLinkedIssueKey)) {
             linkedJiraIssues.push(activeLinkedIssueKey)
         }
         linkedJiraIssues.sort()
-
-        if (pr.overrides) {
-            if (pr.overrides.computedData) {
-                computedData = { ...computedData, ...pr.overrides.computedData };
-            }
-
-            if (pr.overrides.picAccountId) {
-                picAccountId = pr.overrides.picAccountId;
-            }
-        }
-
-        const status = pr.status === 'COMPLETED' ? pr.status : pr.data.state
+        const status = pr.data.state
 
         update.$set = { ...update.$set, computedData, picAccountId, status, activeLinkedIssueKey, linkedJiraIssues };
 
         return update;
     }
 
-    private static computePRMetrics(pr: IBitbucketPR, activity: any[]): IBitbucketPRComputedData {
+    private static computePRMetrics(pr: IBitbucketPR): IBitbucketPRComputedData {
+        const picAccountId = pr.overrides?.picAccountId ?? pr.data.author?.account_id;
+        const activity = pr.activity ?? [];
         const comments = activity.filter(a => a.comment);
         const approvals = activity.filter(a => a.approval);
         const declines = activity.filter(a => a.update?.state === 'CHANGES_REQUESTED' || a.update?.state === 'DECLINED');
@@ -201,6 +192,7 @@ export class BitbucketPRProcessorService {
             ? new Date(firstReviewActivity.approval?.date || firstReviewActivity.comment?.created_on!).getTime()
             : undefined;
 
+        const reviewerCommentCounts = _.countBy(comments.map(a => a.comment.user?.account_id).filter(uid => uid && uid !== picAccountId));
         return {
             totalComments: comments.length,
             totalApprovals: approvals.length,
@@ -208,6 +200,7 @@ export class BitbucketPRProcessorService {
             reviewersApproved,
             reviewersRequestedChanges,
             firstReviewTime,
+            reviewerCommentCounts,
         };
     }
 }
