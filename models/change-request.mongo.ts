@@ -38,7 +38,6 @@ export interface IChangeRequest extends IMongoDocument {
     updatedAt: number;
 }
 
-// MongoDB Collection
 const ChangeRequest = MongoModel.createCollection<IChangeRequest>('change_request', {
     indexes: [
         {

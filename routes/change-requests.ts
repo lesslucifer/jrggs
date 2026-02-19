@@ -58,7 +58,7 @@ class ChangeRequestRouter extends ExpressRouter {
         },
         @Caller() caller: IUser
     ) {
-        const pr = await BitbucketPR.findOne({ _id: new ObjectId(body.prId) }, { projection: { _id: 1, overrides: 1 } });
+        const pr = await BitbucketPR.findOne({ _id: new ObjectId(body.prId) });
         if (!pr) {
             throw new AppLogicError(`PR not found`, 404);
         }
@@ -110,7 +110,7 @@ class ChangeRequestRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.USER)
     @PUT({ path: "/:requestId/cancel" })
     async cancelRequest(@Params('requestId') requestId: string, @Caller() caller: IUser) {
-        const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) }, { projection: { _id: 1, overrides: 1 } });
+        const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) });
         if (!request) {
             throw new AppLogicError('Request not found', 404);
         }
@@ -151,7 +151,7 @@ class ChangeRequestRouter extends ExpressRouter {
         @Body() body: { rejectionReason: string },
         @Caller() caller: IUser
     ) {
-        const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) }, { projection: { _id: 1, overrides: 1 } });
+        const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) });
         if (!request) {
             throw new AppLogicError('Request not found', 404);
         }
