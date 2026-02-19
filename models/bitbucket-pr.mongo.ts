@@ -1,4 +1,5 @@
 import { IMongoDocument, MongoModel } from "../utils/mongo-model";
+import { IChangeRequest } from "./change-request.mongo";
 
 export enum BitbucketPRSyncStatus {
     PENDING = 'PENDING',
@@ -138,6 +139,8 @@ export interface IBitbucketPR extends IMongoDocument {
 
     linkedJiraIssues?: string[];
     activeLinkedIssueKey?: string;
+
+    pendingRequests?: IChangeRequest[];
 
     lastSyncAt: number;
     syncStatus: BitbucketPRSyncStatus;

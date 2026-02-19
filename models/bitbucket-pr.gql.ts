@@ -2,6 +2,7 @@ import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLMapper, GQLModel, GQLObjec
 import hera from "../utils/hera";
 import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR } from "./bitbucket-pr.mongo";
 import _ from "lodash";
+import { IChangeRequest } from "./change-request.mongo";
 
 @GQLObject("bitbucket-pr")
 export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
@@ -42,6 +43,10 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
     @GQLField({ autoSelect: false })
     @GQLIdenticalMapping()
     overrides: any;
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    pendingRequests: IChangeRequest[];
 
     @GQLField()
     status?: string;
