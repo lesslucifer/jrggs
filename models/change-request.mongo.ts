@@ -3,6 +3,7 @@ import { IMongoDocument, MongoModel } from "../utils/mongo-model";
 
 export enum ChangeRequestType {
     PR_POINT_CHANGE = 'PR_POINT_CHANGE',
+    LINKED_ISSUE_CHANGE = 'LINKED_ISSUE_CHANGE',
 }
 
 export enum ChangeRequestStatus {
@@ -15,8 +16,8 @@ export enum ChangeRequestStatus {
 export interface IChangeRequestData {
     targetId: ObjectId;
 
-    oldPoints?: number;
     newPoints?: number;
+    newLinkedIssueKey?: string;
 }
 
 export interface IChangeRequest extends IMongoDocument {

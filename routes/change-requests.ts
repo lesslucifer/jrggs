@@ -7,6 +7,7 @@ import { GQLChangeRequest } from "../models/change-request.gql";
 import { IUser } from "../models/user.mongo";
 import ChangeRequest, { ChangeRequestStatus, ChangeRequestType, IChangeRequestData } from "../models/change-request.mongo";
 import BitbucketPR, { BitbucketPRSyncStatus } from "../models/bitbucket-pr.mongo";
+import JiraIssue, { JiraIssueSyncStatus } from "../models/jira-issue.mongo";
 import { AppLogicError } from "../utils/hera";
 import { BitbucketPRProcessorService } from "../serv/jrggs/bitbucket-pr-process";
 import { ObjectId } from "mongodb";
@@ -63,22 +64,18 @@ class ChangeRequestRouter extends ExpressRouter {
             throw new AppLogicError(`PR not found`, 404);
         }
 
-        const oldPoints = pr.overrides?.points;
-
         const existingPendingRequest = await ChangeRequest.findOne({
             requestType: ChangeRequestType.PR_POINT_CHANGE,
             'requestData.targetId': pr._id,
-            status: ChangeRequestStatus.PENDING,
-            requesterId: caller._id
+            status: ChangeRequestStatus.PENDING
         });
 
         if (existingPendingRequest) {
-            throw new AppLogicError('You already have a pending request for this PR', 400);
+            throw new AppLogicError('Tge PR already have a pending request', 400);
         }
 
         const requestData: IChangeRequestData = {
             targetId: pr._id,
-            oldPoints,
             newPoints: body.newPoints
         };
 
@@ -118,6 +115,84 @@ class ChangeRequestRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @ValidBody({
+        '@prId': 'string',
+        '@newLinkedIssueKey': 'string',
+        '@description': 'string',
+        '++': false
+    })
+    @POST({ path: "/linked-issue-change" })
+    async createLinkedIssueChangeRequest(
+        @Body() body: {
+            prId: string;
+            newLinkedIssueKey: string;
+            description: string;
+        },
+        @Caller() caller: IUser
+    ) {
+        const pr = await BitbucketPR.findOne({ _id: new ObjectId(body.prId) });
+        if (!pr) {
+            throw new AppLogicError(`PR not found`, 404);
+        }
+
+        if (body.newLinkedIssueKey) {
+            const issue = await JiraIssue.findOne({ key: body.newLinkedIssueKey }, { projection: { _id: 1 } });
+            if (!issue) {
+                throw new AppLogicError(`JIRA issue ${body.newLinkedIssueKey} not found`, 404);
+            }
+        }
+
+        const existingPendingRequest = await ChangeRequest.findOne({
+            requestType: ChangeRequestType.LINKED_ISSUE_CHANGE,
+            'requestData.targetId': pr._id,
+            status: ChangeRequestStatus.PENDING
+        });
+
+        if (existingPendingRequest) {
+            throw new AppLogicError('There is already a pending request for this PR', 400);
+        }
+
+        const requestData: IChangeRequestData = {
+            targetId: pr._id,
+            newLinkedIssueKey: body.newLinkedIssueKey
+        };
+
+        const now = Date.now();
+        const result = await ChangeRequest.insertOne({
+            requestType: ChangeRequestType.LINKED_ISSUE_CHANGE,
+            requestData,
+            description: body.description,
+            status: ChangeRequestStatus.PENDING,
+            requesterId: caller._id,
+            requesterEmail: caller.email,
+            createdAt: now,
+            updatedAt: now
+        });
+
+        const insertedRequest = await ChangeRequest.findOne({ _id: result.insertedId });
+        if (!insertedRequest) {
+            throw new AppLogicError('Failed to create request', 500);
+        }
+
+        await BitbucketPR.updateOne(
+            { _id: pr._id },
+            {
+              $set: {
+                syncStatus: BitbucketPRSyncStatus.PENDING,
+                syncParams: {
+                    skipActivity: true,
+                    skipCommits: true
+                }
+              },
+              $push: { pendingRequests: insertedRequest }
+            }
+        );
+        BitbucketPRProcessorService.checkToProcess();
+
+        return insertedRequest;
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
     @PUT({ path: "/:requestId/cancel" })
     async cancelRequest(@Params('requestId') requestId: string, @Caller() caller: IUser) {
         const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) });
@@ -140,8 +215,8 @@ class ChangeRequestRouter extends ExpressRouter {
             }
         });
 
-        if (request.requestType === ChangeRequestType.PR_POINT_CHANGE) {
-            await BitbucketPR.updateOne({ _id: request.requestData.targetId }, { 
+        if (request.requestType === ChangeRequestType.PR_POINT_CHANGE || request.requestType === ChangeRequestType.LINKED_ISSUE_CHANGE) {
+            await BitbucketPR.updateOne({ _id: request.requestData.targetId }, {
               $set: {
                 syncStatus: BitbucketPRSyncStatus.PENDING,
                 syncParams: {
@@ -189,8 +264,8 @@ class ChangeRequestRouter extends ExpressRouter {
             }
         });
 
-        if (request.requestType === ChangeRequestType.PR_POINT_CHANGE) {
-          await BitbucketPR.updateOne({ _id: request.requestData.targetId }, { 
+        if (request.requestType === ChangeRequestType.PR_POINT_CHANGE || request.requestType === ChangeRequestType.LINKED_ISSUE_CHANGE) {
+          await BitbucketPR.updateOne({ _id: request.requestData.targetId }, {
             $set: {
               syncStatus: BitbucketPRSyncStatus.PENDING,
               syncParams: {
@@ -222,16 +297,11 @@ class ChangeRequestRouter extends ExpressRouter {
         }
 
         if (request.requestType === ChangeRequestType.PR_POINT_CHANGE) {
-            const { targetId, oldPoints, newPoints } = request.requestData;
+            const { targetId, newPoints } = request.requestData;
 
             const pr = await BitbucketPR.findOne({ _id: targetId });
             if (!pr) {
                 throw new AppLogicError('PR not found. It may have been deleted.', 404);
-            }
-
-            const currentPoints = pr.overrides?.points;
-            if (currentPoints !== oldPoints) {
-                throw new AppLogicError(`Conflict detected: PR points have changed from ${oldPoints} to ${currentPoints} since request was created. Please cancel and create a new request.`, 409);
             }
 
             await BitbucketPR.updateOne(
@@ -250,6 +320,37 @@ class ChangeRequestRouter extends ExpressRouter {
             );
 
             BitbucketPRProcessorService.checkToProcess();
+        }
+
+        if (request.requestType === ChangeRequestType.LINKED_ISSUE_CHANGE) {
+            const { targetId, newLinkedIssueKey } = request.requestData;
+
+            const pr = await BitbucketPR.findOne({ _id: targetId });
+            if (!pr) {
+                throw new AppLogicError('PR not found. It may have been deleted.', 404);
+            }
+
+            await BitbucketPR.updateOne({ _id: pr._id }, {
+                $set: {
+                    activeLinkedIssueKey: newLinkedIssueKey,
+                    syncStatus: BitbucketPRSyncStatus.PENDING
+                },
+                $pull: { pendingRequests: { _id: request._id } },
+                ...(newLinkedIssueKey && !pr.linkedJiraIssues?.includes(newLinkedIssueKey) ? {
+                    $push: { linkedJiraIssues: newLinkedIssueKey }
+                } : {})
+            });
+  
+          if (pr.activeLinkedIssueKey) {
+              await JiraIssue.updateOne(
+                  { key: pr.activeLinkedIssueKey },
+                  { $set: { syncStatus: JiraIssueSyncStatus.PENDING, syncParams: {
+                      skipHistory: true,
+                      skipChangeLog: true,
+                      skipDevInCharge: true
+                  } } }
+              );
+          }
         }
 
         const now = Date.now();
