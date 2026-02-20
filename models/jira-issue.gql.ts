@@ -2,6 +2,7 @@ import { GQLField, GQLGlobal, GQLIdenticalMapping, GQLMapper, GQLModel, GQLObjec
 import hera from "../utils/hera";
 import JiraIssue, { IJiraIssue, JiraIssueSyncStatus } from "./jira-issue.mongo";
 import _ from "lodash";
+import { IChangeRequest } from "./change-request.mongo";
 
 @GQLObject("jira-issue")
 export class GQLJiraIssue extends GQLModel<IJiraIssue, GQLJiraIssue> {
@@ -47,6 +48,10 @@ export class GQLJiraIssue extends GQLModel<IJiraIssue, GQLJiraIssue> {
     @GQLField({ autoSelect: true })
     @GQLIdenticalMapping()
     nPendingChangeRequests?: Record<string, number>;
+
+    @GQLField({ autoSelect: false })
+    @GQLIdenticalMapping()
+    pendingRequests?: IChangeRequest[];
 
     @GQLField({ autoSelect: true })
     @GQLIdenticalMapping()

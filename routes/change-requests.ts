@@ -8,10 +8,11 @@ import { IUser } from "../models/user.mongo";
 import ChangeRequest, { ChangeRequestStatus, ChangeRequestType, IChangeRequestData } from "../models/change-request.mongo";
 import BitbucketPR, { BitbucketPRSyncStatus } from "../models/bitbucket-pr.mongo";
 import JiraIssue, { JiraIssueSyncStatus } from "../models/jira-issue.mongo";
+import JiraIssueOverrides from "../models/jira-issue-overrides.mongo";
 import { AppLogicError } from "../utils/hera";
 import { BitbucketPRProcessorService } from "../serv/jrggs/bitbucket-pr-process";
+import { IssueProcessorService } from "../serv/jrggs/issue-process";
 import { ObjectId } from "mongodb";
-import HC from "../glob/hc";
 
 class ChangeRequestRouter extends ExpressRouter {
     document = {
@@ -193,6 +194,89 @@ class ChangeRequestRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @ValidBody({
+        '@issueId': 'string',
+        '@changelogId': 'string',
+        '@description': 'string',
+        '++': false
+    })
+    @POST({ path: "/invalidate-rejection-change" })
+    async createInvalidateRejectionRequest(
+        @Body() body: {
+            issueId: string;
+            changelogId: string;
+            description: string;
+        },
+        @Caller() caller: IUser
+    ) {
+        const issue = await JiraIssue.findOne({ _id: new ObjectId(body.issueId) });
+        if (!issue) {
+            throw new AppLogicError(`JIRA issue ${body.issueId} not found`, 404);
+        }
+
+        const changelog = issue.changelog?.find(log => log.id === body.changelogId);
+        if (!changelog) {
+            throw new AppLogicError(`Changelog ${body.changelogId} not found in issue ${issue.key}`, 404);
+        }
+
+        const hasRejection = issue.extraData?.rejections?.some(rej => rej.changelogId === body.changelogId);
+        if (!hasRejection) {
+            throw new AppLogicError(`No rejection found for changelog ${body.changelogId}`, 400);
+        }
+
+        const existingPendingRequest = await ChangeRequest.findOne({
+            requestType: ChangeRequestType.INVALIDATE_REJECTION,
+            'requestData.targetId': issue._id,
+            'requestData.changelogId': body.changelogId,
+            status: ChangeRequestStatus.PENDING
+        });
+
+        if (existingPendingRequest) {
+            throw new AppLogicError('There is already a pending request for this rejection', 400);
+        }
+
+        const requestData: IChangeRequestData = {
+            targetId: issue._id,
+            changelogId: body.changelogId
+        };
+
+        const now = Date.now();
+        const result = await ChangeRequest.insertOne({
+            requestType: ChangeRequestType.INVALIDATE_REJECTION,
+            requestData,
+            description: body.description,
+            status: ChangeRequestStatus.PENDING,
+            requesterId: caller._id,
+            requesterEmail: caller.email,
+            createdAt: now,
+            updatedAt: now
+        });
+
+        const insertedRequest = await ChangeRequest.findOne({ _id: result.insertedId });
+        if (!insertedRequest) {
+            throw new AppLogicError('Failed to create request', 500);
+        }
+
+        await JiraIssue.updateOne(
+            { _id: issue._id },
+            {
+              $set: {
+                syncStatus: JiraIssueSyncStatus.PENDING,
+                syncParams: {
+                    skipHistory: true,
+                    skipChangeLog: true,
+                    skipDevInCharge: true
+                }
+              },
+              $push: { pendingRequests: insertedRequest }
+            }
+        );
+        IssueProcessorService.checkToProcess()
+
+        return insertedRequest;
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
     @PUT({ path: "/:requestId/cancel" })
     async cancelRequest(@Params('requestId') requestId: string, @Caller() caller: IUser) {
         const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) });
@@ -226,8 +310,22 @@ class ChangeRequestRouter extends ExpressRouter {
               },
               $pull: { pendingRequests: { _id: request._id } }
             });
+            BitbucketPRProcessorService.checkToProcess();
         }
-        BitbucketPRProcessorService.checkToProcess();
+
+        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION) {
+            await JiraIssue.updateOne({ _id: request.requestData.targetId }, {
+              $set: {
+                syncStatus: JiraIssueSyncStatus.PENDING,
+                syncParams: {
+                    skipHistory: true,
+                    skipChangeLog: true,
+                    skipDevInCharge: true
+                }
+              },
+              $pull: { pendingRequests: { _id: request._id } }
+            });
+        }
 
         return result.modifiedCount;
     }
@@ -276,6 +374,20 @@ class ChangeRequestRouter extends ExpressRouter {
             $pull: { pendingRequests: { _id: request._id } }
           });
           BitbucketPRProcessorService.checkToProcess();
+        }
+
+        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION) {
+            await JiraIssue.updateOne({ _id: request.requestData.targetId }, {
+              $set: {
+                syncStatus: JiraIssueSyncStatus.PENDING,
+                syncParams: {
+                    skipHistory: true,
+                    skipChangeLog: true,
+                    skipDevInCharge: true
+                }
+              },
+              $pull: { pendingRequests: { _id: request._id } }
+            });
         }
 
         return result.modifiedCount;
@@ -351,6 +463,66 @@ class ChangeRequestRouter extends ExpressRouter {
                   } } }
               );
           }
+        }
+
+        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION) {
+            const { targetId, changelogId } = request.requestData;
+
+            const issue = await JiraIssue.findOne({ _id: targetId });
+            if (!issue) {
+                throw new AppLogicError('JIRA issue not found. It may have been deleted.', 404);
+            }
+
+            await JiraIssueOverrides.updateOne({ key: issue.key }, {
+                $set: {
+                    [`invalidChangelogIds.${changelogId}`]: true
+                }
+            }, {
+                upsert: true
+            });
+
+            await JiraIssue.bulkWrite([
+                {
+                    updateOne: {
+                        filter: { _id: issue._id },
+                        update: {
+                            $set: {
+                                'extraData.rejections.$[elem].isActive': false
+                            }
+                        },
+                        arrayFilters: [{ 'elem.changelogId': changelogId }]
+                    }
+                },
+                {
+                    updateOne: {
+                        filter: { _id: issue._id },
+                        update: {
+                            $set: {
+                                'extraData.codeReviews.$[elem].isActive': false
+                            }
+                        },
+                        arrayFilters: [{ 'elem.changelogId': changelogId }]
+                    }
+                },
+                {
+                    updateOne: {
+                        filter: { _id: issue._id },
+                        update: {
+                            $set: {
+                                syncStatus: JiraIssueSyncStatus.PENDING,
+                                syncParams: {
+                                    skipHistory: true,
+                                    skipChangeLog: true,
+                                    skipDevInCharge: true
+                                }
+                            },
+                            $pull: { pendingRequests: { _id: request._id } }
+                        }
+                    }
+                }
+            ]);
+
+            IssueProcessorService.checkToProcess();
         }
 
         const now = Date.now();

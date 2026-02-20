@@ -1,4 +1,5 @@
 import { IMongoDocument, MongoModel } from "../utils/mongo-model";
+import { IChangeRequest } from "./change-request.mongo";
 
 export enum JiraIssueSyncStatus {
     PENDING = 'PENDING',
@@ -114,6 +115,8 @@ export interface IJiraIssue extends IMongoDocument {
         codeReviews?: IJiraCodeReview[];
         estSP?: number;
     }
+
+    pendingRequests?: IChangeRequest[];
 
     lastSyncAt: number;
     syncStatus: JiraIssueSyncStatus;

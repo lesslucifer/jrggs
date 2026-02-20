@@ -173,7 +173,7 @@ class JiraIssueRouter extends ExpressRouter {
             { upsert: true }
         );
 
-        await JiraIssue.bulkWrite([
+        const result = await JiraIssue.bulkWrite([
             {
                 updateOne: {
                     filter: { key },
