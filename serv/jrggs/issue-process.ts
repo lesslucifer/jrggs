@@ -167,6 +167,9 @@ export class IssueProcessorService {
         iss.nPRReviewsMetric = _(linkedPRs.flatMap(pr => Object.entries(pr.computedData?.reviewerCommentCounts ?? {}))).groupBy(c => c[0]).mapValues(cmts => _.sumBy(cmts, c => c[1])).value()
         update.$set = { ...update.$set, nPRReviewsMetric: iss.nPRReviewsMetric }
 
+        iss.nPendingChangeRequests = _(linkedPRs).flatMap(pr => pr.pendingRequests ?? []).countBy(cr => cr.requestType).value()
+        update.$set = { ...update.$set, nPendingChangeRequests: iss.nPendingChangeRequests }
+
         const sprintIds = this.computeIssueSprintIds(iss)
         iss.sprintIds = sprintIds
         update.$set = { ...update.$set, sprintIds }

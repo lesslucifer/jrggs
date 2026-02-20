@@ -92,6 +92,7 @@ export interface IJiraIssue extends IMongoDocument {
     nPRReviewsMetric?: Record<string, number>;
     sprintIds?: number[];
     inChargeDevs?: string[];
+    nPendingChangeRequests: Record<string, number>; // type => count
 
     extraPoints?: {
         userId: string;

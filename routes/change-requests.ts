@@ -101,8 +101,18 @@ class ChangeRequestRouter extends ExpressRouter {
 
         await BitbucketPR.updateOne(
             { _id: pr._id },
-            { $push: { pendingRequests: insertedRequest } }
+            { 
+              $set: {
+                syncStatus: BitbucketPRSyncStatus.PENDING,
+                syncParams: {
+                    skipActivity: true,
+                    skipCommits: true
+                }
+              },
+              $push: { pendingRequests: insertedRequest }
+            }
         );
+        BitbucketPRProcessorService.checkToProcess();
 
         return insertedRequest;
     }
@@ -131,11 +141,18 @@ class ChangeRequestRouter extends ExpressRouter {
         });
 
         if (request.requestType === ChangeRequestType.PR_POINT_CHANGE) {
-            await BitbucketPR.updateOne(
-                { _id: request.requestData.targetId },
-                { $pull: { pendingRequests: { _id: request._id } } }
-            );
+            await BitbucketPR.updateOne({ _id: request.requestData.targetId }, { 
+              $set: {
+                syncStatus: BitbucketPRSyncStatus.PENDING,
+                syncParams: {
+                    skipActivity: true,
+                    skipCommits: true
+                }
+              },
+              $pull: { pendingRequests: { _id: request._id } }
+            });
         }
+        BitbucketPRProcessorService.checkToProcess();
 
         return result.modifiedCount;
     }
@@ -173,9 +190,17 @@ class ChangeRequestRouter extends ExpressRouter {
         });
 
         if (request.requestType === ChangeRequestType.PR_POINT_CHANGE) {
-            await BitbucketPR.updateOne({ _id: request.requestData.targetId }, {
-                $pull: { pendingRequests: { _id: new ObjectId(requestId) } }
-            });
+          await BitbucketPR.updateOne({ _id: request.requestData.targetId }, { 
+            $set: {
+              syncStatus: BitbucketPRSyncStatus.PENDING,
+              syncParams: {
+                  skipActivity: true,
+                  skipCommits: true
+              }
+            },
+            $pull: { pendingRequests: { _id: request._id } }
+          });
+          BitbucketPRProcessorService.checkToProcess();
         }
 
         return result.modifiedCount;
