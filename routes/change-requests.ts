@@ -22,9 +22,13 @@ class ChangeRequestRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/" })
     @DocGQLResponse(GQLChangeRequest)
-    async getRequests(@Query() query: Record<string, string>) {
+    async getRequests(@Query() query: Record<string, string>, @Caller() caller: IUser) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLChangeRequest);
-        GQLU.whiteListFilter(q, 'status', 'requestType');
+        GQLU.whiteListFilter(q, 'status', 'requestType', 'q');
+
+        if (!caller.roles.includes(USER_ROLE.ADMIN)) {
+            q.filter.addFieldFilter('requesterId', caller._id)
+        }
 
         return await q.resolve();
     }
@@ -48,7 +52,7 @@ class ChangeRequestRouter extends ExpressRouter {
     @ValidBody({
         '@prId': 'string',
         '@newPoints': 'number|>=0',
-        '@description': 'string',
+        '@justification': 'string',
         '++': false
     })
     @POST({ path: "/pr-point-change" })
@@ -56,7 +60,7 @@ class ChangeRequestRouter extends ExpressRouter {
         @Body() body: {
             prId: string;
             newPoints: number;
-            description: string;
+            justification: string;
         },
         @Caller() caller: IUser
     ) {
@@ -75,6 +79,10 @@ class ChangeRequestRouter extends ExpressRouter {
             throw new AppLogicError('Tge PR already have a pending request', 400);
         }
 
+        const oldPoints = pr.overrides?.points ?? 0;
+        const linkedIssues = pr.linkedJiraIssues?.join(', ') || 'none';
+        const description = `Change points for PR #${pr.prId} (linked to ${linkedIssues}) from ${oldPoints} to ${body.newPoints}`;
+
         const requestData: IChangeRequestData = {
             targetId: pr._id,
             newPoints: body.newPoints
@@ -84,7 +92,8 @@ class ChangeRequestRouter extends ExpressRouter {
         const result = await ChangeRequest.insertOne({
             requestType: ChangeRequestType.PR_POINT_CHANGE,
             requestData,
-            description: body.description,
+            description,
+            justification: body.justification,
             status: ChangeRequestStatus.PENDING,
             requesterId: caller._id,
             requesterEmail: caller.email,
@@ -119,7 +128,7 @@ class ChangeRequestRouter extends ExpressRouter {
     @ValidBody({
         '@prId': 'string',
         '@newLinkedIssueKey': 'string',
-        '@description': 'string',
+        '@justification': 'string',
         '++': false
     })
     @POST({ path: "/linked-issue-change" })
@@ -127,7 +136,7 @@ class ChangeRequestRouter extends ExpressRouter {
         @Body() body: {
             prId: string;
             newLinkedIssueKey: string;
-            description: string;
+            justification: string;
         },
         @Caller() caller: IUser
     ) {
@@ -153,6 +162,9 @@ class ChangeRequestRouter extends ExpressRouter {
             throw new AppLogicError('There is already a pending request for this PR', 400);
         }
 
+        const oldLinkedIssueKey = pr.activeLinkedIssueKey || 'none';
+        const description = `Change linked issue for PR #${pr.prId} from ${oldLinkedIssueKey} to ${body.newLinkedIssueKey}`;
+
         const requestData: IChangeRequestData = {
             targetId: pr._id,
             newLinkedIssueKey: body.newLinkedIssueKey
@@ -162,7 +174,8 @@ class ChangeRequestRouter extends ExpressRouter {
         const result = await ChangeRequest.insertOne({
             requestType: ChangeRequestType.LINKED_ISSUE_CHANGE,
             requestData,
-            description: body.description,
+            description,
+            justification: body.justification,
             status: ChangeRequestStatus.PENDING,
             requesterId: caller._id,
             requesterEmail: caller.email,
@@ -197,7 +210,7 @@ class ChangeRequestRouter extends ExpressRouter {
     @ValidBody({
         '@issueId': 'string',
         '@changelogId': 'string',
-        '@description': 'string',
+        '@justification': 'string',
         '++': false
     })
     @POST({ path: "/invalidate-rejection-change" })
@@ -205,7 +218,7 @@ class ChangeRequestRouter extends ExpressRouter {
         @Body() body: {
             issueId: string;
             changelogId: string;
-            description: string;
+            justification: string;
         },
         @Caller() caller: IUser
     ) {
@@ -235,6 +248,8 @@ class ChangeRequestRouter extends ExpressRouter {
             throw new AppLogicError('There is already a pending request for this rejection', 400);
         }
 
+        const description = `Invalidate rejection for issue ${issue.key} (changelog ${body.changelogId})`;
+
         const requestData: IChangeRequestData = {
             targetId: issue._id,
             changelogId: body.changelogId
@@ -244,7 +259,8 @@ class ChangeRequestRouter extends ExpressRouter {
         const result = await ChangeRequest.insertOne({
             requestType: ChangeRequestType.INVALIDATE_REJECTION,
             requestData,
-            description: body.description,
+            description,
+            justification: body.justification,
             status: ChangeRequestStatus.PENDING,
             requesterId: caller._id,
             requesterEmail: caller.email,

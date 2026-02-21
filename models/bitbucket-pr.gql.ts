@@ -99,8 +99,9 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         };
     }
 
-    @GQLResolver({ matches: GQLU.byFields([], ['prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'activeLinkedIssueKey', 'syncStatus', 'author_id', 'q']) })
+    @GQLResolver({ matches: GQLU.byFields([], ['_id', 'prId', 'workspace', 'repoSlug', 'status', 'linkedJiraIssues', 'activeLinkedIssueKey', 'syncStatus', 'author_id', 'q']) })
     static async rootResolve(query: GQLQuery<GQLBitbucketPR>) {
+        const ids = query.filter.get('_id').batch<string>().map(id => hera.mObjId(id, false));
         const prIds = query.filter.get('prId').batch<string>()
         const workspaces = query.filter.get('workspace').batch<string>();
         const repoSlugs = query.filter.get('repoSlug').batch<string>();
@@ -112,6 +113,7 @@ export class GQLBitbucketPR extends GQLModel<IBitbucketPR, GQLBitbucketPR> {
         const textQuery = query.filter.get('q').first();
 
         const mongoQuery = GQLU.notEmpty({
+            _id: hera.mongoEqOrIn(ids),
             prId: hera.mongoEqOrIn(prIds),
             workspace: hera.mongoEqOrIn(workspaces),
             repoSlug: hera.mongoEqOrIn(repoSlugs),

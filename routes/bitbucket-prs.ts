@@ -9,11 +9,24 @@ import _ from "lodash";
 import { GQLFieldFilter, GQLGlobal, GQLU } from "gql-ts";
 import { GQLBitbucketPR } from "../models/bitbucket-pr.gql";
 import JiraIssue, { JiraIssueSyncStatus } from "../models/jira-issue.mongo";
+import { ObjectId } from "mongodb";
 
 class BitbucketPRRouter extends ExpressRouter {
     document = {
         'tags': ['Bitbucket PRs']
     };
+
+    @AuthServ.authUser(USER_ROLE.USER)
+    @GET({ path: "/ids/:ids" })
+    @DocGQLResponse(GQLBitbucketPR)
+    async getPRByIds(@Params('ids') ids: string, @Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLBitbucketPR);
+        GQLU.whiteListFilter(q);
+
+        q.filter.add(new GQLFieldFilter('_id', ids.split(',').map(id => new ObjectId(id))));
+
+        return await q.resolve();
+    }
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: "/:workspace/:repoSlug/:prId" })

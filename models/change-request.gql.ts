@@ -18,6 +18,9 @@ export class GQLChangeRequest extends GQLModel<IChangeRequest, GQLChangeRequest>
     description: string;
 
     @GQLField()
+    justification: string;
+
+    @GQLField()
     status: ChangeRequestStatus;
 
     @GQLField()
@@ -50,6 +53,7 @@ export class GQLChangeRequest extends GQLModel<IChangeRequest, GQLChangeRequest>
             requestType: true,
             requestData: true,
             description: true,
+            justification: true,
             status: true,
             requesterId: true,
             requesterEmail: true,
@@ -58,16 +62,18 @@ export class GQLChangeRequest extends GQLModel<IChangeRequest, GQLChangeRequest>
         };
     }
 
-    @GQLResolver({ matches: GQLU.byFields([], ['status', 'requesterId', 'requestType']) })
+    @GQLResolver({ matches: GQLU.byFields([], ['status', 'requesterId', 'requestType', 'q']) })
     static async rootResolve(query: GQLQuery<GQLChangeRequest>) {
         const statuses = query.filter.get('status').batch<string>();
         const requesterIds = query.filter.get('requesterId').batch<string>();
         const requestTypes = query.filter.get('requestType').batch<string>();
+        const textQuery = query.filter.get('q').first();
 
         const mongoQuery = GQLU.notEmpty({
             status: hera.mongoEqOrIn(statuses),
             requesterId: hera.mongoEqOrIn(requesterIds),
             requestType: hera.mongoEqOrIn(requestTypes),
+            ...(textQuery ? { $text: { $search: textQuery } } : {})
         });
 
         return await hera.gqlMongoQueryPagination(

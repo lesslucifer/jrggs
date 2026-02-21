@@ -27,6 +27,7 @@ export interface IChangeRequest extends IMongoDocument {
     requestData: IChangeRequestData;
 
     description: string;
+    justification: string;
     status: ChangeRequestStatus;
 
     requesterId: ObjectId; // User._id who requested
@@ -65,6 +66,16 @@ const ChangeRequest = MongoModel.createCollection<IChangeRequest>('change_reques
         {
             name: 'createdAt',
             index: { createdAt: -1 }
+        },
+        {
+            name: 'text',
+            index: {
+                description: 'text',
+                justification: 'text',
+                requesterEmail: 'text',
+                rejectionReason: 'text'
+            },
+            opts: { default_language: 'none' }
         }
     ]
 });
