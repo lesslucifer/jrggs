@@ -16,6 +16,7 @@ import './serv/jrggs/issue-process';
 import './serv/jrggs/sync-bitbucket-prs';
 import './serv/jrggs/bitbucket-pr-process';
 import moment from 'moment';
+import RealtimeServ from './serv/realtime.serv';
 
 export class Program {
     static server: express.Express;
@@ -50,6 +51,8 @@ export class Program {
         const appServer = await new Promise<Server>(resolve => {
             resolve(this.server.listen(ENV.HTTP_PORT, () => console.log(`Listen on port ${ENV.HTTP_PORT}...`, moment().format('YYYY-MM-DD HH:mm:ss.SSS'))))
         });
+
+        RealtimeServ.init(appServer)
 
         const exitHandler = terminate(appServer, {
             coredump: false,

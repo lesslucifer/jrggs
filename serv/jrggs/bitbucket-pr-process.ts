@@ -7,6 +7,7 @@ import { AsyncLockExt, Locked } from "../../utils/async-lock-ext";
 import { BitbucketService } from "../bitbucket";
 import JiraIssue, { JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import { IssueProcessorService } from "./issue-process";
+import RealtimeServ from "../realtime.serv";
 
 function extractJiraIssueKeys(text: string, projectKeys: string[]): string[] {
     if (!text || !projectKeys || projectKeys.length === 0) {
@@ -71,6 +72,10 @@ export class BitbucketPRProcessorService {
             const bulkOps = itemUpdates.map(update => ({ updateOne: update }));
             if (bulkOps.length > 0) {
                 await BitbucketPR.bulkWrite(bulkOps);
+
+                RealtimeServ.broadcast('PRUpdates', {
+                    prIds: prs.map(pr => _.pick(pr, '_id', 'prId', 'workspace', 'repoSlug'))
+                })
             }
 
             prs.forEach(pr => pr.activeLinkedIssueKey && activeLinkedIssueKeys.add(pr.activeLinkedIssueKey));

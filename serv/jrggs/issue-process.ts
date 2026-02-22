@@ -9,6 +9,7 @@ import AsyncLockExt, { Locked } from "../../utils/async-lock-ext";
 import { JiraIssueData, JIRAService } from "../jira";
 import JiraObjectServ from "../jira-object.serv";
 import moment from "moment";
+import RealtimeServ from "../realtime.serv";
 
 export class IssueProcessorService {
     private static Lock = new AsyncLockExt()
@@ -36,6 +37,10 @@ export class IssueProcessorService {
             }))
             if (bulkOps.length > 0) {
                 await JiraIssue.bulkWrite(bulkOps)
+
+                RealtimeServ.broadcast('IssueUpdates', {
+                    keys: issues.map(iss => iss.key)
+                })
             }
         } catch (error) {
             console.error(error)
