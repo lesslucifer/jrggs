@@ -5,6 +5,7 @@ export enum ChangeRequestType {
     PR_POINT_CHANGE = 'PR_POINT_CHANGE',
     LINKED_ISSUE_CHANGE = 'LINKED_ISSUE_CHANGE',
     INVALIDATE_REJECTION = 'INVALIDATE_REJECTION',
+    EXTRA_POINTS = 'EXTRA_POINTS',
 }
 
 export enum ChangeRequestStatus {
@@ -20,6 +21,8 @@ export interface IChangeRequestData {
     newPoints?: number;
     newLinkedIssueKey?: string;
     changelogId?: string;
+    userId?: string;
+    extraPoints?: number;
 }
 
 export interface IChangeRequest extends IMongoDocument {
