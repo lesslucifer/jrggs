@@ -293,6 +293,89 @@ class ChangeRequestRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @ValidBody({
+        '@issueId': 'string',
+        '@userId': 'string',
+        '@extraPoints': 'number|>0',
+        '@justification': 'string',
+        '++': false
+    })
+    @POST({ path: "/extra-points" })
+    async createExtraPointsRequest(
+        @Body() body: {
+            issueId: string;
+            userId: string;
+            extraPoints: number;
+            justification: string;
+        },
+        @Caller() caller: IUser
+    ) {
+        const issue = await JiraIssue.findOne({ _id: new ObjectId(body.issueId) });
+        if (!issue) {
+            throw new AppLogicError(`JIRA issue not found`, 404);
+        }
+
+        const issueStatus = issue.data?.fields?.status?.name;
+        if (issueStatus !== 'Done' && issueStatus !== 'Closed') {
+            throw new AppLogicError(`Can only request extra points for completed issues (status: Done or Closed)`, 400);
+        }
+
+        const existingPendingRequest = await ChangeRequest.findOne({
+            requestType: ChangeRequestType.EXTRA_POINTS,
+            'requestData.targetId': issue._id,
+            status: ChangeRequestStatus.PENDING
+        });
+
+        if (existingPendingRequest) {
+            throw new AppLogicError('There is already a pending extra points request for this issue', 400);
+        }
+
+        const description = `Extra points request: +${body.extraPoints} for user ${body.userId} on issue ${issue.key}`;
+
+        const requestData: IChangeRequestData = {
+            targetId: issue._id,
+            userId: body.userId,
+            extraPoints: body.extraPoints
+        };
+
+        const now = Date.now();
+        const result = await ChangeRequest.insertOne({
+            requestType: ChangeRequestType.EXTRA_POINTS,
+            requestData,
+            description,
+            justification: body.justification,
+            status: ChangeRequestStatus.PENDING,
+            requesterId: caller._id,
+            requesterEmail: caller.email,
+            createdAt: now,
+            updatedAt: now
+        });
+
+        const insertedRequest = await ChangeRequest.findOne({ _id: result.insertedId });
+        if (!insertedRequest) {
+            throw new AppLogicError('Failed to create request', 500);
+        }
+
+        await JiraIssue.updateOne(
+            { _id: issue._id },
+            {
+              $set: {
+                syncStatus: JiraIssueSyncStatus.PENDING,
+                syncParams: {
+                    skipHistory: true,
+                    skipChangeLog: true,
+                    skipDevInCharge: true
+                }
+              },
+              $push: { pendingRequests: insertedRequest }
+            }
+        );
+        IssueProcessorService.checkToProcess();
+
+        return insertedRequest;
+    }
+
+    @AuthServ.authUser(USER_ROLE.USER)
     @PUT({ path: "/:requestId/cancel" })
     async cancelRequest(@Params('requestId') requestId: string, @Caller() caller: IUser) {
         const request = await ChangeRequest.findOne({ _id: new ObjectId(requestId) });
@@ -329,7 +412,7 @@ class ChangeRequestRouter extends ExpressRouter {
             BitbucketPRProcessorService.checkToProcess();
         }
 
-        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION) {
+        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION || request.requestType === ChangeRequestType.EXTRA_POINTS) {
             await JiraIssue.updateOne({ _id: request.requestData.targetId }, {
               $set: {
                 syncStatus: JiraIssueSyncStatus.PENDING,
@@ -341,6 +424,7 @@ class ChangeRequestRouter extends ExpressRouter {
               },
               $pull: { pendingRequests: { _id: request._id } }
             });
+            IssueProcessorService.checkToProcess();
         }
 
         return result.modifiedCount;
@@ -392,7 +476,7 @@ class ChangeRequestRouter extends ExpressRouter {
           BitbucketPRProcessorService.checkToProcess();
         }
 
-        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION) {
+        if (request.requestType === ChangeRequestType.INVALIDATE_REJECTION || request.requestType === ChangeRequestType.EXTRA_POINTS) {
             await JiraIssue.updateOne({ _id: request.requestData.targetId }, {
               $set: {
                 syncStatus: JiraIssueSyncStatus.PENDING,
@@ -404,6 +488,7 @@ class ChangeRequestRouter extends ExpressRouter {
               },
               $pull: { pendingRequests: { _id: request._id } }
             });
+            IssueProcessorService.checkToProcess();
         }
 
         return result.modifiedCount;
@@ -537,6 +622,36 @@ class ChangeRequestRouter extends ExpressRouter {
                     }
                 }
             ]);
+
+            IssueProcessorService.checkToProcess();
+        }
+
+        if (request.requestType === ChangeRequestType.EXTRA_POINTS) {
+            const { targetId, userId, extraPoints } = request.requestData;
+
+            const issue = await JiraIssue.findOne({ _id: targetId });
+            if (!issue) {
+                throw new AppLogicError('JIRA issue not found. It may have been deleted.', 404);
+            }
+
+            const existingIndex = issue.extraPoints?.findIndex(ep => ep.userId === userId);
+
+            await JiraIssue.updateOne(
+                { _id: targetId },
+                {
+                    ...(existingIndex < 0 ? { $push: { extraPoints: { userId, extraPoints } } } : {}),
+                    $set: {
+                        ...(existingIndex >= 0 ? { [`extraPoints.${existingIndex}.extraPoints`]: extraPoints } : {}),
+                        syncStatus: JiraIssueSyncStatus.PENDING,
+                        syncParams: {
+                            skipHistory: true,
+                            skipChangeLog: true,
+                            skipDevInCharge: true
+                        }
+                    },
+                    $pull: { pendingRequests: { _id: request._id } }
+                }
+            );
 
             IssueProcessorService.checkToProcess();
         }
