@@ -30,8 +30,8 @@ export interface IChangeRequest extends IMongoDocument {
     justification: string;
     status: ChangeRequestStatus;
 
-    requesterId: ObjectId; // User._id who requested
-    requesterEmail: string; // For quick display
+    requesterId?: ObjectId; // User._id who requested
+    requesterEmail?: string; // For quick display
 
     processedById?: ObjectId; // Admin who approved/rejected
     processedByEmail?: string;

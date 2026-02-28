@@ -24,10 +24,10 @@ export class GQLChangeRequest extends GQLModel<IChangeRequest, GQLChangeRequest>
     status: ChangeRequestStatus;
 
     @GQLField()
-    requesterId: string;
+    requesterId?: string;
 
     @GQLField()
-    requesterEmail: string;
+    requesterEmail?: string;
 
     @GQLField()
     processedById?: string;

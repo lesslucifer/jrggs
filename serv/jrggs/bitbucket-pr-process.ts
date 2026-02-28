@@ -2,12 +2,13 @@ import { UpdateFilter, UpdateOneModel } from "mongodb";
 import schedule from 'node-schedule';
 import _ from 'lodash';
 import HC from "../../glob/hc";
-import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRComputedData } from "../../models/bitbucket-pr.mongo";
+import BitbucketPR, { BitbucketPRSyncStatus, IBitbucketPR, IBitbucketPRActivity, IBitbucketPRComputedData } from "../../models/bitbucket-pr.mongo";
 import { AsyncLockExt, Locked } from "../../utils/async-lock-ext";
 import { BitbucketService } from "../bitbucket";
 import JiraIssue, { JiraIssueSyncStatus } from "../../models/jira-issue.mongo";
 import { IssueProcessorService } from "./issue-process";
 import RealtimeServ from "../realtime.serv";
+import ChangeRequest, { ChangeRequestStatus, ChangeRequestType, IChangeRequest } from "../../models/change-request.mongo";
 
 function extractJiraIssueKeys(text: string, projectKeys: string[]): string[] {
     if (!text || !projectKeys || projectKeys.length === 0) {
@@ -161,6 +162,11 @@ export class BitbucketPRProcessorService {
             update.$set = { ...update.$set, commits };
         }
 
+        const pushedObjects = await this.processComments(pr);
+        if (pushedObjects) {
+            update.$push = { ...update.$push, ...pushedObjects };
+        }
+
         const computedData = { ...this.computePRMetrics(pr), ...pr.overrides?.computedData };
         let picAccountId = pr.data.author?.account_id ?? pr.overrides?.picAccountId;
 
@@ -175,6 +181,66 @@ export class BitbucketPRProcessorService {
         update.$set = { ...update.$set, computedData, picAccountId, status, activeLinkedIssueKey, linkedJiraIssues };
 
         return update;
+    }
+
+    private static async processComments(pr: IBitbucketPR) {
+        const processedCommentIds = new Set(pr.processedCommentIds ?? []);
+        const activities = pr.activity ?? [];
+        const changeRequests = _(activities).map(a => a.comment)
+            .filter(comment => comment?.id && !processedCommentIds.has(comment.id))
+            .map(comment => ({
+                changeRequest: this.detectPCRInComment(pr, comment),
+                comment: comment,
+            })).filter(cr => !!cr.changeRequest)
+
+        if (changeRequests.size() > 0) {
+            const insertResult = await ChangeRequest.insertMany(changeRequests.map(cr => cr.changeRequest).value());
+            const resultCRs: IChangeRequest[] = changeRequests.map((cr, idx) => ({
+                _id: insertResult.insertedIds?.[idx],
+                ...cr.changeRequest,
+            })).value()
+
+            return {
+                pendingRequests: { $each: resultCRs },
+                processedCommentIds: { $each: changeRequests.map(cr => cr.comment.id!).value() },
+            }
+        }
+    }
+
+    private static readonly PCR_PATTERN = /(\d+)\s+points/i;
+    private static detectPCRInComment(pr: IBitbucketPR, comment: IBitbucketPRActivity['comment']): IChangeRequest | undefined {
+        const commentText = comment.content?.raw || '';
+        const authorDisplayName = comment.user?.display_name || 'Unknown';
+
+        const match = commentText?.match(this.PCR_PATTERN);
+        const pcrPoint = parseInt(match?.[1], 10);
+        if (isNaN(pcrPoint) || pcrPoint <= 0) {
+            return undefined;
+        }
+
+        if (pr.pendingRequests?.some(req => req.requestType === ChangeRequestType.PR_POINT_CHANGE)) {
+            return undefined;
+        }
+
+        const prKey = `${pr.workspace}/${pr.repoSlug}#${pr.prId}`;
+
+        const now = Date.now();
+        const description = `PCR detected in comment on PR ${prKey}: ${pcrPoint} points requested by ${authorDisplayName}`;
+        const justification = `Auto-detected from PR comment: "${commentText}"`;
+
+        return {
+            requestType: ChangeRequestType.PR_POINT_CHANGE,
+            requestData: {
+                targetId: pr._id,
+                newPoints: pcrPoint,
+            },
+            requesterEmail: authorDisplayName,
+            description,
+            justification,
+            status: ChangeRequestStatus.PENDING,
+            createdAt: now,
+            updatedAt: now
+        }
     }
 
     private static computePRMetrics(pr: IBitbucketPR): IBitbucketPRComputedData {

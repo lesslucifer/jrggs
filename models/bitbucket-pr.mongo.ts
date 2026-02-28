@@ -141,6 +141,7 @@ export interface IBitbucketPR extends IMongoDocument {
     activeLinkedIssueKey?: string;
 
     pendingRequests?: IChangeRequest[];
+    processedCommentIds?: number[];
 
     lastSyncAt: number;
     syncStatus: BitbucketPRSyncStatus;
