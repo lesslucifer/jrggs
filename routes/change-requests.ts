@@ -320,13 +320,7 @@ class ChangeRequestRouter extends ExpressRouter {
             throw new AppLogicError(`Can only request extra points for completed issues (status: Done or Closed)`, 400);
         }
 
-        const existingPendingRequest = await ChangeRequest.findOne({
-            requestType: ChangeRequestType.EXTRA_POINTS,
-            'requestData.targetId': issue._id,
-            status: ChangeRequestStatus.PENDING
-        });
-
-        if (existingPendingRequest) {
+        if (issue.pendingRequests?.some(req => req.requestType === ChangeRequestType.EXTRA_POINTS)) {
             throw new AppLogicError('There is already a pending extra points request for this issue', 400);
         }
 
