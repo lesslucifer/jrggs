@@ -117,12 +117,23 @@ export class UserRouter extends ExpressRouter {
         return await this.addUserAsAdmin(null, body)
     }
 
+    @AuthServ.authUser(USER_ROLE.USER)
+    @ValidBody({
+        '+@jiraUserId': 'string',
+        '++': false
+    })
+    @PUT({ path: '/me/jira-link' })
+    async linkMyJiraUser(@Caller() caller: IUser, @Body('jiraUserId') jiraUserId: string) {
+        await User.updateOne({ _id: caller._id }, { $set: { jiraUserId } })
+    }
+
     @AuthServ.authUser(USER_ROLE.ADMIN,)
     @ValidBody({
         '@name': 'string',
         '@email': 'string',
         '@isBlocked': 'boolean',
         '[]roles': { enum: _.values(C.USER_ROLE) },
+        '@jiraUserId': 'string',
         '++': false
     })
     @PUT({ path: '/:id' })
@@ -167,6 +178,7 @@ interface IAddUpdateUserBody {
     email: string;
     password: string;
     roles: USER_ROLE[];
+    jiraUserId?: string;
 }
 
 export default new UserRouter();

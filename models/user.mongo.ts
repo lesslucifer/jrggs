@@ -10,6 +10,7 @@ export interface IUserCompactInfo extends IMongoDocument {
 export interface IUser extends IUserCompactInfo {
     roles: USER_ROLE[];
     isBlocked?: boolean;
+    jiraUserId?: string;
 
     createdAt: number;
     updatedAt: number;

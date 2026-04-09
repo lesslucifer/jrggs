@@ -9,6 +9,9 @@ import { USER_ROLE } from '../../glob/cf';
 
 const SYS_ADMIN_KEY = '123';
 
+const ELIGIBLE_JIRA_ID = 'test-jira-id-eligible';
+const REGULAR_JIRA_ID = 'test-jira-id-regular';
+
 async function createUser(email: string, roles: USER_ROLE[]): Promise<{ userId: string; token: string }> {
     const createResp = await TestUtils.Http
         .post(TestUtils.envURL('/users'))
@@ -48,10 +51,20 @@ describe('# Kudos API:', () => {
         const eligible = await createUser(`kudos_eligible_${suffix}@test.com`, [USER_ROLE.USER]);
         eligibleUserToken = eligible.token;
         eligibleUserId = eligible.userId;
+
+        await TestUtils.Http
+            .put(TestUtils.envURL(`/users/${regularUserId}`))
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ jiraUserId: REGULAR_JIRA_ID });
+
+        await TestUtils.Http
+            .put(TestUtils.envURL(`/users/${eligibleUserId}`))
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ jiraUserId: ELIGIBLE_JIRA_ID });
     });
 
     after(async () => {
-        await Kudo.deleteMany({ fromUserId: { $in: [adminUserId, regularUserId, eligibleUserId] } });
+        await Kudo.deleteMany({ fromUserId: { $in: [ELIGIBLE_JIRA_ID] } });
         await KudoEligibleGiver.deleteMany({ userId: { $in: [adminUserId, regularUserId, eligibleUserId] } });
         await User.deleteMany({ _id: { $in: [adminUserId, regularUserId, eligibleUserId].map(id => new ObjectId(id)) } });
     });
@@ -110,13 +123,14 @@ describe('# Kudos API:', () => {
     });
 
     describe('GET /kudos/eligible-givers/me', () => {
-        it('returns eligible=true for eligible giver', async () => {
+        it('returns eligible=true and jiraUserId for eligible giver', async () => {
             const resp = await TestUtils.Http
                 .get(TestUtils.envURL('/kudos/eligible-givers/me'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
                 .send();
             expect(resp).to.have.status(200);
             expect(resp.body.data.eligible).to.equal(true);
+            expect(resp.body.data.jiraUserId).to.equal(ELIGIBLE_JIRA_ID);
         });
 
         it('returns eligible=false for non-eligible user', async () => {
@@ -134,16 +148,16 @@ describe('# Kudos API:', () => {
             const resp = await TestUtils.Http
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
-                .send({ toUserId: regularUserId, category: KudoCategory.TEAMWORK });
+                .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
             expect(resp).to.have.status(200);
-            expect(resp.body.data).to.include({ fromUserId: eligibleUserId, toUserId: regularUserId, category: KudoCategory.TEAMWORK });
+            expect(resp.body.data).to.include({ fromUserId: ELIGIBLE_JIRA_ID, toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
         });
 
         it('eligible giver can give a kudo with optional message', async () => {
             const resp = await TestUtils.Http
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
-                .send({ toUserId: regularUserId, category: KudoCategory.MENTORING, message: 'Great help!' });
+                .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.MENTORING, message: 'Great help!' });
             expect(resp).to.have.status(200);
             expect(resp.body.data.message).to.equal('Great help!');
         });
@@ -152,7 +166,7 @@ describe('# Kudos API:', () => {
             const resp = await TestUtils.Http
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
-                .send({ toUserId: eligibleUserId, category: KudoCategory.TEAMWORK });
+                .send({ toUserId: ELIGIBLE_JIRA_ID, category: KudoCategory.TEAMWORK });
             expect(resp).to.have.status(400);
         });
 
@@ -160,7 +174,7 @@ describe('# Kudos API:', () => {
             const resp = await TestUtils.Http
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${userToken}`)
-                .send({ toUserId: adminUserId, category: KudoCategory.TEAMWORK });
+                .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
             expect(resp).to.have.status(403);
         });
 
@@ -168,16 +182,24 @@ describe('# Kudos API:', () => {
             const resp = await TestUtils.Http
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
-                .send({ toUserId: regularUserId, category: 'INVALID_CATEGORY' });
+                .send({ toUserId: REGULAR_JIRA_ID, category: 'INVALID_CATEGORY' });
             expect(resp).to.have.status(400);
         });
 
-        it('invalid toUserId returns 400', async () => {
+        it('user without jiraUserId cannot give a kudo', async () => {
+            const suffix = Date.now();
+            const noJira = await createUser(`kudos_nojira_${suffix}@test.com`, [USER_ROLE.USER]);
+            await TestUtils.Http
+                .post(TestUtils.envURL('/kudos/eligible-givers'))
+                .set('Authorization', `Bearer ${adminToken}`)
+                .send({ userId: noJira.userId });
             const resp = await TestUtils.Http
                 .post(TestUtils.envURL('/kudos'))
-                .set('Authorization', `Bearer ${eligibleUserToken}`)
-                .send({ toUserId: '000000000000000000000000', category: KudoCategory.TEAMWORK });
+                .set('Authorization', `Bearer ${noJira.token}`)
+                .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
             expect(resp).to.have.status(400);
+            await User.deleteOne({ _id: new ObjectId(noJira.userId) });
+            await KudoEligibleGiver.deleteOne({ userId: noJira.userId });
         });
     });
 
@@ -207,12 +229,12 @@ describe('# Kudos API:', () => {
 
         it('filters by toUserId', async () => {
             const resp = await TestUtils.Http
-                .get(TestUtils.envURL(`/kudos?toUserId=${regularUserId}`))
+                .get(TestUtils.envURL(`/kudos?toUserId=${REGULAR_JIRA_ID}`))
                 .set('Authorization', `Bearer ${userToken}`)
                 .send();
             expect(resp).to.have.status(200);
             const kudos = resp.body.data;
-            kudos.forEach((k: any) => expect(k.toUserId).to.equal(regularUserId));
+            kudos.forEach((k: any) => expect(k.toUserId).to.equal(REGULAR_JIRA_ID));
         });
 
         it('returns empty array when no kudos in date range', async () => {

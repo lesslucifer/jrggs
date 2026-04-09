@@ -1,5 +1,4 @@
 import { Body, DELETE, ExpressRouter, GET, POST, Params, Query } from 'express-router-ts';
-import { ObjectId } from 'mongodb';
 import { USER_ROLE } from '../glob/cf';
 import AuthServ from '../serv/auth';
 import { Caller, ValidBody } from '../utils/decors';
@@ -7,6 +6,7 @@ import { AppLogicError } from '../utils/hera';
 import Kudo, { IKudo, KudoCategory } from '../models/kudo.mongo';
 import KudoEligibleGiver from '../models/kudo-eligible-giver.mongo';
 import User, { IUser } from '../models/user.mongo';
+import { ObjectId } from 'mongodb';
 
 class KudosRouter extends ExpressRouter {
     document = {
@@ -28,23 +28,21 @@ class KudosRouter extends ExpressRouter {
         @Body('message') message: string | undefined
     ): Promise<IKudo> {
         const callerId = caller._id.toHexString()
-
-        if (callerId === toUserId) {
-            throw new AppLogicError('Cannot give a kudo to yourself', 400)
-        }
-
         const eligibleGiver = await KudoEligibleGiver.findOne({ userId: callerId })
         if (!eligibleGiver) {
             throw new AppLogicError('You are not eligible to give kudos', 403)
         }
 
-        const recipient = await User.findOne({ _id: new ObjectId(toUserId) })
-        if (!recipient) {
-            throw new AppLogicError('Recipient user not found', 400)
+        if (!caller.jiraUserId) {
+            throw new AppLogicError('You must link your Jira account before giving kudos', 400)
+        }
+
+        if (caller.jiraUserId === toUserId) {
+            throw new AppLogicError('Cannot give a kudo to yourself', 400)
         }
 
         const kudo: Omit<IKudo, '_id'> = {
-            fromUserId: callerId,
+            fromUserId: caller.jiraUserId,
             toUserId,
             category,
             message,
@@ -78,10 +76,10 @@ class KudosRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.USER)
     @GET({ path: '/eligible-givers/me' })
-    async checkMyEligibility(@Caller() caller: IUser): Promise<{ eligible: boolean }> {
+    async checkMyEligibility(@Caller() caller: IUser): Promise<{ eligible: boolean; jiraUserId?: string }> {
         const callerId = caller._id.toHexString()
         const record = await KudoEligibleGiver.findOne({ userId: callerId })
-        return { eligible: !!record }
+        return { eligible: !!record, jiraUserId: caller.jiraUserId }
     }
 
     @AuthServ.authUser(USER_ROLE.ADMIN)

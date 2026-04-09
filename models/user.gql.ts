@@ -21,6 +21,9 @@ export class GQLUser extends GQLModel<IUser, GQLUser> {
     @GQLField()
     isBlocked: boolean;
 
+    @GQLField()
+    jiraUserId: string;
+
     static get DefaultSelect() {
         return { _id: true }
     }
