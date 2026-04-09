@@ -628,7 +628,7 @@ class ChangeRequestRouter extends ExpressRouter {
                 throw new AppLogicError('JIRA issue not found. It may have been deleted.', 404);
             }
 
-            const existingIndex = issue.extraPoints?.findIndex(ep => ep.userId === userId);
+            const existingIndex = issue.extraPoints?.findIndex(ep => ep.userId === userId) ?? -1;
 
             await JiraIssue.updateOne(
                 { _id: targetId },

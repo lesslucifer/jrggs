@@ -1,0 +1,12 @@
+# .gitworktreecopy
+# Files/dirs to copy or symlink from main worktree to new worktrees
+#
+# Syntax:
+#   pattern        — copy matching files
+#   ~> pattern     — symlink instead of copy
+#   **/*.ext       — glob for recursive matching
+#   # comment      — ignored
+
+~> node_modules
+
+process.env
