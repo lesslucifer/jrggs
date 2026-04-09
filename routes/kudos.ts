@@ -1,12 +1,14 @@
 import { Body, DELETE, ExpressRouter, GET, POST, Params, Query } from 'express-router-ts';
 import { USER_ROLE } from '../glob/cf';
 import AuthServ from '../serv/auth';
-import { Caller, ValidBody } from '../utils/decors';
+import { Caller, ValidBody, DocGQLResponse } from '../utils/decors';
 import { AppLogicError } from '../utils/hera';
 import Kudo, { IKudo, KudoCategory } from '../models/kudo.mongo';
+import { GQLKudo } from '../models/kudo.gql';
 import KudoEligibleGiver from '../models/kudo-eligible-giver.mongo';
 import User, { IUser } from '../models/user.mongo';
 import { ObjectId } from 'mongodb';
+import { GQLGlobal, GQLU } from 'gql-ts';
 
 class KudosRouter extends ExpressRouter {
     document = {
@@ -54,24 +56,12 @@ class KudosRouter extends ExpressRouter {
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
+    @DocGQLResponse(GQLKudo)
     @GET({ path: '/' })
-    async listKudos(@Query() query: any): Promise<IKudo[]> {
-        const filter: any = {}
-
-        if (query.startDate && query.endDate) {
-            const startTs = new Date(query.startDate).getTime()
-            const endTs = new Date(query.endDate).getTime()
-            if (isNaN(startTs) || isNaN(endTs)) {
-                throw new AppLogicError('Invalid date format', 400)
-            }
-            filter.createdAt = { $gte: startTs, $lte: endTs }
-        }
-
-        if (query.fromUserId) filter.fromUserId = query.fromUserId
-        if (query.toUserId) filter.toUserId = query.toUserId
-        if (query.category) filter.category = query.category
-
-        return Kudo.find(filter).sort({ createdAt: -1 }).toArray()
+    async listKudos(@Query() query: Record<string, string>) {
+        const q = GQLGlobal.queryFromHttpQuery(query, GQLKudo);
+        GQLU.whiteListFilter(q, 'fromUserId', 'toUserId', 'category');
+        return q.resolve();
     }
 
     @AuthServ.authUser(USER_ROLE.USER)
