@@ -1,6 +1,30 @@
 import { expect } from 'chai';
 import TestUtils from '../utils/testutils';
 import { KudoCategory } from '../../models/kudo.mongo';
+import Kudo from '../../models/kudo.mongo';
+import KudoEligibleGiver from '../../models/kudo-eligible-giver.mongo';
+import User from '../../models/user.mongo';
+import { ObjectId } from 'mongodb';
+import { USER_ROLE } from '../../glob/cf';
+
+const SYS_ADMIN_KEY = '123';
+
+async function createUser(email: string, roles: USER_ROLE[]): Promise<{ userId: string; token: string }> {
+    const createResp = await TestUtils.Http
+        .post(TestUtils.envURL('/users'))
+        .set('x-api-key', SYS_ADMIN_KEY)
+        .send({ name: email, email, password: 'password123', roles });
+    if (createResp.status !== 200) throw new Error(`Failed to create user ${email}: ${createResp.status} ${JSON.stringify(createResp.body)}`);
+    const userId = createResp.body.data._id;
+
+    const loginResp = await TestUtils.Http
+        .post(TestUtils.envURL('/auth/login'))
+        .send({ email, password: 'password123' });
+    if (loginResp.status !== 200) throw new Error(`Failed to login ${email}: ${loginResp.status}`);
+    const token = loginResp.body.data.access_token;
+
+    return { userId, token };
+}
 
 describe('# Kudos API:', () => {
     let adminToken: string;
@@ -12,10 +36,25 @@ describe('# Kudos API:', () => {
     let eligibleUserId: string;
 
     before(async () => {
-    })
+        const suffix = Date.now();
+        const admin = await createUser(`kudos_admin_${suffix}@test.com`, [USER_ROLE.USER, USER_ROLE.ADMIN]);
+        adminToken = admin.token;
+        adminUserId = admin.userId;
+
+        const regular = await createUser(`kudos_user_${suffix}@test.com`, [USER_ROLE.USER]);
+        userToken = regular.token;
+        regularUserId = regular.userId;
+
+        const eligible = await createUser(`kudos_eligible_${suffix}@test.com`, [USER_ROLE.USER]);
+        eligibleUserToken = eligible.token;
+        eligibleUserId = eligible.userId;
+    });
 
     after(async () => {
-    })
+        await Kudo.deleteMany({ fromUserId: { $in: [adminUserId, regularUserId, eligibleUserId] } });
+        await KudoEligibleGiver.deleteMany({ userId: { $in: [adminUserId, regularUserId, eligibleUserId] } });
+        await User.deleteMany({ _id: { $in: [adminUserId, regularUserId, eligibleUserId].map(id => new ObjectId(id)) } });
+    });
 
     describe('POST /kudos/eligible-givers (admin only)', () => {
         it('admin can add an eligible giver', async () => {
@@ -187,6 +226,14 @@ describe('# Kudos API:', () => {
     });
 
     describe('DELETE /kudos/eligible-givers/:userId (admin only)', () => {
+        it('non-admin cannot remove an eligible giver', async () => {
+            const resp = await TestUtils.Http
+                .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
+                .set('Authorization', `Bearer ${userToken}`)
+                .send();
+            expect(resp).to.have.status(403);
+        });
+
         it('admin can remove an eligible giver', async () => {
             const resp = await TestUtils.Http
                 .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
@@ -197,18 +244,10 @@ describe('# Kudos API:', () => {
 
         it('removing non-existent eligible giver returns 400', async () => {
             const resp = await TestUtils.Http
-                .delete(TestUtils.envURL('/kudos/eligible-givers/nonexistent'))
+                .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send();
             expect(resp).to.have.status(400);
-        });
-
-        it('non-admin cannot remove an eligible giver', async () => {
-            const resp = await TestUtils.Http
-                .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(403);
         });
     });
 });

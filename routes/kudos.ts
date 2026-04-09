@@ -15,7 +15,7 @@ class KudosRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.USER)
     @ValidBody({
-        '+toUserId': 'string',
+        '+@toUserId': 'string',
         '+category': { enum: Object.values(KudoCategory) },
         '@message': 'string',
         '++': false
@@ -92,7 +92,7 @@ class KudosRouter extends ExpressRouter {
 
     @AuthServ.authUser(USER_ROLE.ADMIN)
     @ValidBody({
-        '+userId': 'string',
+        '+@userId': 'string',
         '++': false
     })
     @POST({ path: '/eligible-givers' })
