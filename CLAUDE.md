@@ -1,7 +1,18 @@
 # CLAUDE.md
 
-# IMPORTANT RULE (ALWAYS FOLLOW):
+# IMPORTANT RULES (ALWAYS FOLLOW):
 DO NOT EVER GENERATE UNNECESSARY COMMENTS IN THE CODE UNLESS SUPER NEEDED!
+
+ALL backend GET list endpoints MUST use the GQL-ts pattern — no exceptions:
+- Use `GQLGlobal.queryFromHttpQuery(query, GQLModel)` to parse HTTP query params
+- Use `GQLU.whiteListFilter(q, ...allowedFields)` to secure client-controllable filters
+- Use `q.filter.add(new GQLFieldFilter(...))` for server-enforced filters
+- Use `@DocGQLResponse(GQLModel)` decorator on the route handler
+- Use `hera.gqlMongoQueryPagination(...)` inside the `@GQLResolver` for pagination
+- Every MongoDB collection that is read via GET list MUST have a corresponding `*.gql.ts` model
+- Frontend callers MUST always pass `$fields` to specify which fields to return (e.g. `$fields: '*,message'`). Fields with `autoSelect: false` in the GQL model must be explicitly included. Never omit `$fields` — it controls projection and is required for correctness.
+- Use `$sort=field:1` or `$sort=field:-1` for ordering, `$from=field:value` / `$to=field:value` for cursor-based pagination / range filtering
+This is the core architectural signature of the app. Any raw `Collection.find()` in a GET list route is a violation.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 

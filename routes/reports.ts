@@ -3,6 +3,7 @@ import _ from "lodash";
 import moment from "moment";
 import { Filter } from "mongodb";
 import JiraIssue, { IJiraIssue, IJiraIssueMetrics } from "../models/jira-issue.mongo";
+import Kudo from "../models/kudo.mongo";
 import { AppLogicError } from "../utils/hera";
 import { JiraIssueData } from "../serv/jira";
 import AuthServ from "../serv/auth";
@@ -48,6 +49,14 @@ class JiraIssueRouter extends ExpressRouter {
         const queryObj = this.getIssuesQueryFromHttpQuery(query, ['sprint', 'date', 'project'])
         const issues = await JiraIssue.find(queryObj, { projection: { _id: 0, key: 1, metrics: 1, nPRReviewsMetric: 1 } }).toArray()
 
+        let kudoScores = new Map<string, number>()
+        if (query.startDate && query.endDate) {
+            const startTs = moment(query.startDate).startOf('day').valueOf()
+            const endTs = moment(query.endDate).endOf('day').valueOf()
+            const rangeDays = moment(query.endDate).endOf('day').diff(moment(query.startDate).startOf('day'), 'days')
+            kudoScores = await computeKudoScores(startTs, endTs, rangeDays)
+        }
+
         const result = issues.reduce((acc, issue) => {
             Object.entries(issue.metrics).forEach(([userId, metrics]) => {
                 const key = userId
@@ -63,10 +72,11 @@ class JiraIssueRouter extends ExpressRouter {
                             nPRs: 0,
                             prPoints: 0,
                             nPRComments: 0
-                        }
+                        },
+                        kudoScore: 0
                     }
                 }
-                
+
                 acc[key].metrics.issues.push(issue.key)
                 acc[key].metrics.storyPoints += metrics.storyPoints
                 acc[key].metrics.nRejections += metrics.nRejections
@@ -93,8 +103,13 @@ class JiraIssueRouter extends ExpressRouter {
                 nPRs: number,
                 prPoints: number,
                 nPRComments: number
-            }
+            },
+            kudoScore: number
         }>)
+
+        for (const [userId, entry] of Object.entries(result)) {
+            entry.kudoScore = kudoScores.get(userId) ?? 0
+        }
 
         return _.orderBy(Object.values(result), ['user'])
     }
@@ -128,6 +143,33 @@ class JiraIssueRouter extends ExpressRouter {
 
         return queryObj
     }
+}
+
+async function computeKudoScores(startDate: number, endDate: number, rangeDays: number): Promise<Map<string, number>> {
+    const kudos = await Kudo.find({ createdAt: { $gte: startDate, $lte: endDate } }).toArray()
+
+    const giverCounts = new Map<string, number>()
+    for (const k of kudos) {
+        giverCounts.set(k.fromUserId, (giverCounts.get(k.fromUserId) ?? 0) + 1)
+    }
+
+    const rawSums = new Map<string, number>()
+    let rawPool = 0
+    for (const k of kudos) {
+        const n = giverCounts.get(k.fromUserId)!
+        const value = 1 / Math.sqrt(n)
+        rawPool += value
+        rawSums.set(k.toUserId, (rawSums.get(k.toUserId) ?? 0) + value)
+    }
+
+    const A = Math.max(1, rangeDays)
+    const scale = rawPool <= A ? 1 : A / rawPool
+
+    const scores = new Map<string, number>()
+    for (const [userId, rawSum] of rawSums) {
+        scores.set(userId, rawSum * scale)
+    }
+    return scores
 }
 
 export type IJiraIssueReportRecord = {
