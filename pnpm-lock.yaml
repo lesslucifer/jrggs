@@ -41,6 +41,9 @@ importers:
       fs-extra:
         specifier: ^7.0.0
         version: 7.0.1
+      glob:
+        specifier: ^7.2.3
+        version: 7.2.3
       google-auth-library:
         specifier: ^9.14.2
         version: 9.15.1

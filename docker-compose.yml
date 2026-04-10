@@ -1,9 +1,25 @@
-version: "3"
-
 services:
-  image_name:
-    image: image_name:latest
+  jrggs:
+    image: jrggs:latest
+    container_name: jrggs
     ports:
-      - 3000:3000
+      - 4892:4892
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - HTTP_PORT=3000
+      - NAME=PROD
+      - HTTP_PORT=4892
+      - GG_KEY_FILE=/root/keys/wfov6web-ggkey.json
+      - SYSADMIN_API_KEY=ExF12o4Wi1MFN
+      - MONGO_CONNECTION=mongodb://jrggs:ExF12oXnw4VBw8uGlVtXc6QxiUWi1MFN@host.docker.internal:27017/jrggs
+      - MONGO_DB=jrggs
+      - JIRA_HOST=https://workforceoptimizer.jira.com
+      - JIRA_TOKEN=Basic dnUubHV1QHdvcmtmb3JjZW9wdGltaXplci5jb206QVRBVFQzeEZmR0YwdjRGUWVURWpOZ0JEdXhKa0JKbWV2eEFhVGtOdEQzbjM1MUdyQjVadUxNbzRNa2lxY2xMTTdjb3IwVjhaN1NnVFQ0YndKbFZQWFdqd1JmcTAxX2JkYko3X01sZ1FfZ2kxWndPdkpCZ3VLTW5UbkNMNFI3MmU5TnR4ZjdnOEdWTDBFRi16T1MwLUlJWXQ3VE9ackt3aHRKazlrZkpCUjFFVnZIZjRvWmRoZThvPTBBNjI5MTUx
+      - BITBUCKET_API_TOKEN=ATATT3xFfGF0DfyKhz_OdBBueRivj08_m31g5Cxff0TcST4AxzcjEuGXKKgrX21cqD14ENX6T9_J3ucBm8UgBYOfz3GSl_asr12L0YcM7shsRxbJw2MpZ-B6z1w8j5SASdet94SpzALTYGVyktXlHjBXajw7PE8Qr84gx5Y6EVZgFU5Vbv_OFDg=F3F677B6
+      - BITBUCKET_API_BASE=https://api.bitbucket.org/2.0
+      - BITBUCKET_USERNAME=vu.luu@workforceoptimizer.com
+      - APP_DOMAIN=https://jrggs.vulq.io.vn
+    volumes:
+      - "/home/vulq/docker/jrggs/keys/wfov6web-ggkey.json:/root/keys/wfov6web-ggkey.json"
+    restart: always
+
