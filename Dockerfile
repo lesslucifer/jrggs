@@ -1,28 +1,30 @@
 # Build stage
 FROM node:22.3.0 AS builder
 
+RUN npm install -g pnpm
+
 WORKDIR /app
 
-COPY package*.json ./
-COPY yarn.lock ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 
-RUN yarn install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN yarn run build
+RUN pnpm run build
 
 RUN rm -rf node_modules
 
 # Build production node_modules stage
 FROM node:22.3.0 AS builder_prod
 
+RUN npm install -g pnpm
+
 WORKDIR /app
 
-COPY package*.json ./
-COPY yarn.lock ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 
-RUN yarn install --only=production --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile
 
 # Production stage
 FROM node:22.3.0-alpine
@@ -39,4 +41,4 @@ RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 
-CMD ["yarn", "serve"]
+CMD ["node", "dist/app.js"]
