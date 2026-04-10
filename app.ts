@@ -17,6 +17,7 @@ import './serv/jrggs/sync-bitbucket-prs';
 import './serv/jrggs/bitbucket-pr-process';
 import moment from 'moment';
 import RealtimeServ from './serv/realtime.serv';
+import { TelegramBotService } from './serv/telegram/bot';
 
 export class Program {
     static server: express.Express;
@@ -53,6 +54,10 @@ export class Program {
         });
 
         RealtimeServ.init(appServer)
+
+        TelegramBotService.start().catch(err =>
+            console.error('[Telegram] Failed to start bot:', err.message)
+        );
 
         const exitHandler = terminate(appServer, {
             coredump: false,

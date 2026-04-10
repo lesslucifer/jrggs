@@ -53,6 +53,8 @@ export interface ENV_CONFIG extends ENV_DB_CONFIG, ENV_AUTH {
     BITBUCKET_API_BASE: string
     BITBUCKET_API_TOKEN: string
     BITBUCKET_USERNAME: string
+
+    APP_DOMAIN?: string
 }
 
 const ajvEnvConfig = ajv.compile({
@@ -65,6 +67,7 @@ const ajvEnvConfig = ajv.compile({
     '+@BITBUCKET_API_TOKEN': 'string',
     '+@BITBUCKET_USERNAME': 'string',
     '@LOG_LEVEL': 'string',
+    '@APP_DOMAIN': 'string',
     ...ajvEnvDbConfig,
     ...ajvEnvAuthConfig
 })
@@ -72,6 +75,7 @@ const ajvEnvConfig = ajv.compile({
 const ENV_DEFAULT: Partial<ENV_CONFIG> = {
     HTTP_PORT: 3000,
     LOG_LEVEL: 'debug',
+    APP_DOMAIN: 'https://jrggs.vulq.io.vn',
     ...authEnvDefault
 }
 

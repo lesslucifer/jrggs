@@ -11,6 +11,7 @@ export interface IUser extends IUserCompactInfo {
     roles: USER_ROLE[];
     isBlocked?: boolean;
     jiraUserId?: string;
+    telegramUserId?: number;
 
     createdAt: number;
     updatedAt: number;
@@ -25,6 +26,7 @@ const User = MongoModel.createCollection<IUser>('user', {
         { name: 'updatedAt', index: { updatedAt: 1 } },
         { name: 'roles', index: { roles: 1 } },
         { name: 'isBlocked', index: { isBlocked: 1 } },
+        { name: 'telegramUserId', index: { telegramUserId: 1 }, opts: { sparse: true } },
     ],
     dropIndexes: [
         'phone',

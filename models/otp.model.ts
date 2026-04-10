@@ -3,7 +3,8 @@ import { ObjectId } from 'mongodb';
 import { IMongoDocument, MongoModel } from '../utils/mongo-model';
 
 export enum OTP_TYPE {
-    LOGIN = 'LOGIN'
+    LOGIN = 'LOGIN',
+    TELEGRAM_LINK = 'TELEGRAM_LINK'
 }
 
 export interface IOTP extends IMongoDocument {
@@ -11,6 +12,7 @@ export interface IOTP extends IMongoDocument {
     userId: ObjectId;
     type: OTP_TYPE;
     expiresAt: number;
+    telegramUserId?: number;
 }
 
 export const OTP = MongoModel.createCollection<IOTP>('otp', {
