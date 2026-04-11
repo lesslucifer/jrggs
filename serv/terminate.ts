@@ -1,15 +1,7 @@
 import { Server } from "http"
+import { TelegramBotService } from './telegram/bot';
 
 export default function terminate(server: Server, options = { coredump: false, timeout: 500 }) {
-  const exit = (code?: number) => {
-    if (options.coredump) {
-      process.abort()
-    }
-    else {
-      process.exit(code)
-    }
-  }
-
   return (code: number, reason: string) => (err: Error, rej: Promise<Error>) => {
     console.log(`Exit reason`, reason)
     if (err && err instanceof Error) {
@@ -20,7 +12,17 @@ export default function terminate(server: Server, options = { coredump: false, t
       console.error(rej)
     }
 
-    setTimeout(() => exit(code), options.timeout)
-    server.close((err) => console.log(err))
+    const forceKill = setTimeout(() => {
+      console.error(`[Terminate] Graceful shutdown timed out after ${options.timeout}ms — force killing`)
+      process.exit(code)
+    }, options.timeout)
+    forceKill.unref()
+
+    Promise.allSettled([
+      TelegramBotService.stop(),
+      new Promise<void>(resolve => server.close(() => resolve())),
+    ]).then(() => {
+      process.exit(code)
+    })
   }
 }

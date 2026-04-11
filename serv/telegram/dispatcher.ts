@@ -31,6 +31,11 @@ export class TelegramDispatcher {
     async init(): Promise<void> {
         this.registerCommands();
         this.bot.on('message', (msg) => this.handleMessage(msg));
+
+        const unique = this.getCommands().filter(c => !c.adminOnly);
+        await this.bot.setMyCommands(
+            unique.map(c => ({ command: c.name, description: c.description }))
+        );
     }
 
     private registerCommands(): void {
@@ -66,9 +71,14 @@ export class TelegramDispatcher {
             chatId,
             telegramUserId: msg.from!.id,
             isGroupChat,
+            allCommands: this.getCommands(),
             reply: (text: string) => this.bot.sendMessage(chatId, text, isGroupChat ? { reply_to_message_id: msg.message_id } : undefined),
             replyMd: (text: string) => this.bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...(isGroupChat ? { reply_to_message_id: msg.message_id } : undefined) }),
         };
+
+        if (cmd.dmOnly && isGroupChat) {
+            return void await ctx.reply('This command can only be used in a direct message. Please DM me to use this command.');
+        }
 
         try {
             await cmd.handler(ctx);

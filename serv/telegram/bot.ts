@@ -24,8 +24,15 @@ export class TelegramBotService {
         if (this.bot && this.currentToken === token) return;
         await this.stop();
 
-        this.bot = new TelegramBot(token, { polling: true });
+        this.bot = new TelegramBot(token, { polling: false });
         this.currentToken = token;
+
+        const updates = await this.bot.getUpdates({ offset: -1, limit: 1 });
+        if (updates.length > 0) {
+            await this.bot.getUpdates({ offset: updates[0].update_id + 1, limit: 0 });
+        }
+
+        this.bot.startPolling();
         this.dispatcher = new TelegramDispatcher(this.bot);
         await this.dispatcher.init();
 

@@ -6,7 +6,8 @@ import { requireLinkedUser } from '../utils';
 
 const mystatsCmd: ITelegramCommand = {
     name: 'mystats',
-    description: 'Your sprint/period stats — /mystats [sprintId]',
+    description: 'Your sprint/period stats',
+    usage: '/mystats [sprintId]',
     async handler(ctx: TelegramCommandContext) {
         const user = await requireLinkedUser(ctx);
         if (!user) return;

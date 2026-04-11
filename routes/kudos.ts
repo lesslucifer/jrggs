@@ -3,7 +3,7 @@ import { USER_ROLE } from '../glob/cf';
 import AuthServ from '../serv/auth';
 import { Caller, ValidBody, DocGQLResponse } from '../utils/decors';
 import { AppLogicError } from '../utils/hera';
-import Kudo, { IKudo, KudoCategory } from '../models/kudo.mongo';
+import Kudo, { IKudo } from '../models/kudo.mongo';
 import { GQLKudo } from '../models/kudo.gql';
 import KudoEligibleGiver from '../models/kudo-eligible-giver.mongo';
 import User, { IUser } from '../models/user.mongo';
@@ -18,16 +18,14 @@ class KudosRouter extends ExpressRouter {
     @AuthServ.authUser(USER_ROLE.USER)
     @ValidBody({
         '+@toUserId': 'string',
-        '+category': { enum: Object.values(KudoCategory) },
-        '@message': 'string',
+        '+@message': 'string',
         '++': false
     })
     @POST({ path: '/' })
     async giveKudo(
         @Caller() caller: IUser,
         @Body('toUserId') toUserId: string,
-        @Body('category') category: KudoCategory,
-        @Body('message') message: string | undefined
+        @Body('message') message: string
     ): Promise<IKudo> {
         const callerId = caller._id.toHexString()
         const eligibleGiver = await KudoEligibleGiver.findOne({ userId: callerId })
@@ -46,7 +44,6 @@ class KudosRouter extends ExpressRouter {
         const kudo: Omit<IKudo, '_id'> = {
             fromUserId: caller.jiraUserId,
             toUserId,
-            category,
             message,
             createdAt: Date.now()
         }
@@ -60,7 +57,7 @@ class KudosRouter extends ExpressRouter {
     @GET({ path: '/' })
     async listKudos(@Query() query: Record<string, string>) {
         const q = GQLGlobal.queryFromHttpQuery(query, GQLKudo);
-        GQLU.whiteListFilter(q, 'fromUserId', 'toUserId', 'category');
+        GQLU.whiteListFilter(q, 'fromUserId', 'toUserId');
         return q.resolve();
     }
 

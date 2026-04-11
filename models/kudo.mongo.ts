@@ -1,17 +1,8 @@
 import { IMongoDocument, MongoModel } from '../utils/mongo-model';
 
-export enum KudoCategory {
-    MENTORING = 'MENTORING',
-    TEAMWORK = 'TEAMWORK',
-    INNOVATION = 'INNOVATION',
-    OWNERSHIP = 'OWNERSHIP',
-    COMMUNICATION = 'COMMUNICATION',
-}
-
 export interface IKudo extends IMongoDocument {
     fromUserId: string;
     toUserId: string;
-    category: KudoCategory;
     message?: string;
     createdAt: number;
 }

@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import { ObjectId } from 'mongodb';
 import { TelegramCommandContext } from '../../../../serv/telegram/types';
 import User from '../../../../models/user.mongo';
-import Kudo, { KudoCategory } from '../../../../models/kudo.mongo';
+import Kudo from '../../../../models/kudo.mongo';
 import KudoEligibleGiver from '../../../../models/kudo-eligible-giver.mongo';
 import AppConfig from '../../../../models/app-config';
 import OTP from '../../../../models/otp.model';
@@ -27,6 +27,7 @@ function buildMockCtx(overrides?: Partial<TelegramCommandContext>): TelegramComm
         chatId: 1,
         telegramUserId: 1,
         isGroupChat: false,
+        allCommands: [],
         reply: sinon.stub().resolves({} as any),
         replyMd: sinon.stub().resolves({} as any),
         ...overrides,
@@ -54,17 +55,9 @@ describe('Telegram Commands', () => {
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('Usage:');
         });
 
-        it('should reject invalid category', async () => {
-            const sender = mockUser({ telegramUserId: 100, jiraUserId: 'JIRA-1' });
-            stubModel(sandbox, User, 'findOne', sender);
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@bob', 'invalidcat', 'great'] });
-            await kudoCmd.handler(ctx);
-            expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('Invalid category');
-        });
-
         it('should prompt link when sender not linked', async () => {
             stubModel(sandbox, User, 'findOne', null);
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@bob', 'tw', 'nice'] });
+            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@bob', 'nice'] });
             await kudoCmd.handler(ctx);
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('not linked');
         });
@@ -73,7 +66,7 @@ describe('Telegram Commands', () => {
             const sender = mockUser({ telegramUserId: 100, jiraUserId: 'JIRA-1' });
             const findOneStub = stubModel(sandbox, User, 'findOne', sender);
             stubModel(sandbox, KudoEligibleGiver, 'findOne', null);
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@bob', 'tw', 'nice'] });
+            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@bob', 'nice'] });
             await kudoCmd.handler(ctx);
             expect((ctx.reply as sinon.SinonStub).calledOnce).toBe(true);
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('not eligible');
@@ -88,7 +81,7 @@ describe('Telegram Commands', () => {
             findOneUser.onSecondCall().resolves(null);
             stubModel(sandbox, KudoEligibleGiver, 'findOne', eligible);
 
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@unknown', 'tw', 'nice'] });
+            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@unknown', 'nice'] });
             await kudoCmd.handler(ctx);
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('Could not find user');
         });
@@ -102,7 +95,7 @@ describe('Telegram Commands', () => {
             findOneUser.onSecondCall().resolves(sender);
             stubModel(sandbox, KudoEligibleGiver, 'findOne', eligible);
 
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@Alice', 'tw', 'nice'] });
+            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@Alice', 'nice'] });
             await kudoCmd.handler(ctx);
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('cannot give a kudo to yourself');
         });
@@ -117,7 +110,7 @@ describe('Telegram Commands', () => {
             findOneUser.onSecondCall().resolves(recipient);
             stubModel(sandbox, KudoEligibleGiver, 'findOne', eligible);
 
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@Bob', 'tw', 'good'] });
+            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@Bob', 'good'] });
             await kudoCmd.handler(ctx);
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('has not linked their Jira account');
         });
@@ -133,14 +126,13 @@ describe('Telegram Commands', () => {
             stubModel(sandbox, KudoEligibleGiver, 'findOne', eligible);
             const insertStub = stubModel(sandbox, Kudo, 'insertOne', { insertedId: new ObjectId(), acknowledged: true });
 
-            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@Bob', 'tw', 'Great', 'job'] });
+            const ctx = buildMockCtx({ telegramUserId: 100, args: ['@Bob', 'Great', 'job'] });
             await kudoCmd.handler(ctx);
 
             expect(insertStub.calledOnce).toBe(true);
             const insertedDoc = insertStub.firstCall.args[0];
             expect(insertedDoc.fromUserId).toBe('JIRA-1');
             expect(insertedDoc.toUserId).toBe('JIRA-2');
-            expect(insertedDoc.category).toBe(KudoCategory.TEAMWORK);
             expect(insertedDoc.message).toBe('Great job');
             expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('Kudo sent');
         });
@@ -156,7 +148,7 @@ describe('Telegram Commands', () => {
             stubModel(sandbox, KudoEligibleGiver, 'findOne', eligible);
             stubModel(sandbox, Kudo, 'insertOne', { insertedId: new ObjectId(), acknowledged: true });
 
-            const ctx = buildMockCtx({ telegramUserId: 500, isGroupChat: false, args: ['@DmRecipient', 'tw', 'Great'] });
+            const ctx = buildMockCtx({ telegramUserId: 500, isGroupChat: false, args: ['@DmRecipient', 'Great'] });
             await kudoCmd.handler(ctx);
 
             expect((ctx.bot.sendMessage as sinon.SinonStub).calledOnce).toBe(true);
@@ -175,11 +167,11 @@ describe('Telegram Commands', () => {
             stubModel(sandbox, KudoEligibleGiver, 'findOne', eligible);
             stubModel(sandbox, Kudo, 'insertOne', { insertedId: new ObjectId(), acknowledged: true });
 
-            const ctx1 = buildMockCtx({ telegramUserId: 300, args: ['@Other', 'tw', 'first'] });
+            const ctx1 = buildMockCtx({ telegramUserId: 300, args: ['@Other', 'first'] });
             await kudoCmd.handler(ctx1);
             expect((ctx1.reply as sinon.SinonStub).firstCall.args[0]).toContain('Kudo sent');
 
-            const ctx2 = buildMockCtx({ telegramUserId: 300, args: ['@Other', 'tw', 'second'] });
+            const ctx2 = buildMockCtx({ telegramUserId: 300, args: ['@Other', 'second'] });
             await kudoCmd.handler(ctx2);
             expect((ctx2.reply as sinon.SinonStub).firstCall.args[0]).toContain('wait a minute');
         });
@@ -359,8 +351,8 @@ describe('Telegram Commands', () => {
         it('should show kudo summary', async () => {
             const sender = mockUser({ telegramUserId: 100, jiraUserId: 'JIRA-1' });
             const received = [
-                mockKudo({ toUserId: 'JIRA-1', fromUserId: 'JIRA-2', category: KudoCategory.TEAMWORK, createdAt: Date.now() }),
-                mockKudo({ toUserId: 'JIRA-1', fromUserId: 'JIRA-3', category: KudoCategory.INNOVATION, createdAt: Date.now() }),
+                mockKudo({ toUserId: 'JIRA-1', fromUserId: 'JIRA-2', createdAt: Date.now() }),
+                mockKudo({ toUserId: 'JIRA-1', fromUserId: 'JIRA-3', createdAt: Date.now() }),
             ];
             const given = [
                 mockKudo({ fromUserId: 'JIRA-1', toUserId: 'JIRA-4', createdAt: Date.now() }),

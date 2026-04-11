@@ -7,6 +7,7 @@ export interface TelegramCommandContext {
     chatId: number;
     telegramUserId: number;
     isGroupChat: boolean;
+    allCommands: ITelegramCommand[];
     reply: (text: string) => Promise<TelegramBot.Message>;
     replyMd: (text: string) => Promise<TelegramBot.Message>;
 }
@@ -16,5 +17,7 @@ export interface ITelegramCommand {
     aliases?: string[];
     description: string;
     adminOnly?: boolean;
+    dmOnly?: boolean;
+    usage?: string;
     handler: (ctx: TelegramCommandContext) => Promise<void>;
 }

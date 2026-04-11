@@ -10,7 +10,9 @@ const otpGenerator = customAlphabet(HC.HUMAN32_ALPHABET);
 
 const linkCmd: ITelegramCommand = {
     name: 'link',
-    description: 'Link your Telegram account',
+    description: 'Link your Telegram account (DM only)',
+    dmOnly: true,
+    usage: '/link',
     async handler(ctx: TelegramCommandContext) {
         const existing = await User.findOne({ telegramUserId: ctx.telegramUserId });
         if (existing) {
@@ -33,7 +35,9 @@ const linkCmd: ITelegramCommand = {
 
 const unlinkCmd: ITelegramCommand = {
     name: 'unlink',
-    description: 'Unlink your Telegram account',
+    description: 'Unlink your Telegram account (DM only)',
+    dmOnly: true,
+    usage: '/unlink',
     async handler(ctx: TelegramCommandContext) {
         const result = await User.updateOne(
             { telegramUserId: ctx.telegramUserId },

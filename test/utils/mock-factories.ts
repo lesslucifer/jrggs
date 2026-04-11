@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb';
 import { USER_ROLE } from '../../glob/cf';
 import { IUser } from '../../models/user.mongo';
 import { IUserAuth } from '../../models/user-auth.model';
-import { IKudo, KudoCategory } from '../../models/kudo.mongo';
+import { IKudo } from '../../models/kudo.mongo';
 import { IKudoEligibleGiver } from '../../models/kudo-eligible-giver.mongo';
 
 let seq = 0;
@@ -32,7 +32,6 @@ export function mockKudo(overrides?: Partial<IKudo>): IKudo {
         _id: new ObjectId(),
         fromUserId: new ObjectId().toHexString(),
         toUserId: new ObjectId().toHexString(),
-        category: KudoCategory.TEAMWORK,
         message: `Kudo message ${n}`,
         createdAt: Date.now(),
         ...overrides,

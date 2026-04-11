@@ -13,6 +13,7 @@ const registerCmd: ITelegramCommand = {
     name: 'register',
     description: 'Register this group for Kudo Bot (admin only)',
     adminOnly: true,
+    usage: '/register',
     async handler(ctx: TelegramCommandContext) {
         if (!ctx.isGroupChat) {
             return void await ctx.reply('This command can only be used in a group chat.');
@@ -51,6 +52,7 @@ const unregisterCmd: ITelegramCommand = {
     name: 'unregister',
     description: 'Unregister this group (admin only)',
     adminOnly: true,
+    usage: '/unregister',
     async handler(ctx: TelegramCommandContext) {
         if (!ctx.isGroupChat) {
             return void await ctx.reply('This command can only be used in a group chat.');

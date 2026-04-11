@@ -62,7 +62,12 @@ export class AuthRouter extends ExpressRouter {
     async renewToken(@Body() body: IRenewTokenBody) {
         const refreshToken = body.refresh_token;
         const expires = Math.floor(Date.now() / 1000) + AuthServ.authenticator.accessTokenExpires;
-        const accessToken = await AuthServ.authenticator.genAccessToken(refreshToken);
+        let accessToken: string;
+        try {
+            accessToken = await AuthServ.authenticator.genAccessToken(refreshToken);
+        } catch (err) {
+            throw new AppLogicError('Cannot refresh token! Invalid token', 400, ERR.REFRESH_TOKEN_NOT_FOUND);
+        }
 
         const auth = await AuthServ.authenticator.getUser(accessToken);
         const user = await User.findOne({ _id: hera.mObjId(auth.id as string) });

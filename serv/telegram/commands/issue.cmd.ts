@@ -4,7 +4,8 @@ import { requireLinkedUser } from '../utils';
 
 const issueCmd: ITelegramCommand = {
     name: 'issue',
-    description: 'Look up a JIRA issue — /issue KEY-123',
+    description: 'Look up a JIRA issue',
+    usage: '/issue KEY-123',
     async handler(ctx: TelegramCommandContext) {
         const user = await requireLinkedUser(ctx);
         if (!user) return;

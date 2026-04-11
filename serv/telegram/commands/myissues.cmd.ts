@@ -6,7 +6,8 @@ const STATUS_ORDER: Record<string, number> = { 'To Do': 0, 'In Progress': 1, 'Co
 
 const myissuesCmd: ITelegramCommand = {
     name: 'myissues',
-    description: 'Your active issues — /myissues',
+    description: 'Your active issues',
+    usage: '/myissues',
     async handler(ctx: TelegramCommandContext) {
         const user = await requireLinkedUser(ctx);
         if (!user) return;

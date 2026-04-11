@@ -1,22 +1,15 @@
 import { ITelegramCommand, TelegramCommandContext } from '../types';
 import User from '../../../models/user.mongo';
-import Kudo, { KudoCategory } from '../../../models/kudo.mongo';
+import Kudo from '../../../models/kudo.mongo';
 import KudoEligibleGiver from '../../../models/kudo-eligible-giver.mongo';
 import { requireLinkedUser } from '../utils';
-
-const CATEGORY_MAP: Record<string, KudoCategory> = {
-    teamwork: KudoCategory.TEAMWORK, tw: KudoCategory.TEAMWORK,
-    innovation: KudoCategory.INNOVATION, inn: KudoCategory.INNOVATION,
-    ownership: KudoCategory.OWNERSHIP, own: KudoCategory.OWNERSHIP,
-    communication: KudoCategory.COMMUNICATION, com: KudoCategory.COMMUNICATION,
-    mentoring: KudoCategory.MENTORING, men: KudoCategory.MENTORING,
-};
 
 const RATE_LIMIT = new Map<number, number>();
 
 const kudoCmd: ITelegramCommand = {
     name: 'kudo',
-    description: 'Give a kudo — /kudo @user category message',
+    description: 'Give a kudo',
+    usage: '/kudo @user message',
     async handler(ctx: TelegramCommandContext) {
         const lastKudo = RATE_LIMIT.get(ctx.telegramUserId);
         if (lastKudo && Date.now() - lastKudo < 60_000) {
@@ -24,21 +17,11 @@ const kudoCmd: ITelegramCommand = {
         }
 
         if (ctx.args.length < 2) {
-            return void await ctx.reply(
-                'Usage: /kudo @username category [message]\nCategories: teamwork (tw), innovation (inn), ownership (own), communication (com), mentoring (men)'
-            );
+            return void await ctx.reply('Usage: /kudo @username message');
         }
 
         const recipientRef = ctx.args[0].replace('@', '');
-        const categoryKey = ctx.args[1].toLowerCase();
-        const message = ctx.args.slice(2).join(' ').slice(0, 280) || undefined;
-
-        const category = CATEGORY_MAP[categoryKey];
-        if (!category) {
-            return void await ctx.reply(
-                'Invalid category. Valid options: teamwork (tw), innovation (inn), ownership (own), communication (com), mentoring (men)'
-            );
-        }
+        const message = ctx.args.slice(1).join(' ').slice(0, 280);
 
         const sender = await requireLinkedUser(ctx);
         if (!sender) return;
@@ -83,19 +66,18 @@ const kudoCmd: ITelegramCommand = {
         await Kudo.insertOne({
             fromUserId: sender.jiraUserId,
             toUserId: recipient.jiraUserId,
-            category,
             message,
             createdAt: Date.now(),
         } as any);
 
         RATE_LIMIT.set(ctx.telegramUserId, Date.now());
 
-        const response = `Kudo sent!\n${sender.name} gave ${recipient.name} a kudo for ${category}${message ? `\n"${message}"` : ''}`;
+        const response = `Kudo sent!\n${sender.name} gave ${recipient.name} a kudo\n"${message}"`;
         await ctx.reply(response);
 
         if (!ctx.isGroupChat && recipient.telegramUserId) {
             await ctx.bot.sendMessage(recipient.telegramUserId,
-                `You received a kudo from ${sender.name}!\nCategory: ${category}${message ? `\n"${message}"` : ''}`
+                `You received a kudo from ${sender.name}!\n"${message}"`
             ).catch(() => {});
         }
     }

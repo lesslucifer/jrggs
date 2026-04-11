@@ -8,6 +8,7 @@ import { requireLinkedUser } from '../utils';
 const leaderboardCmd: ITelegramCommand = {
     name: 'leaderboard',
     description: 'Top kudo receivers this month',
+    usage: '/leaderboard',
     async handler(ctx: TelegramCommandContext) {
         const sender = await requireLinkedUser(ctx);
         if (!sender) return;
