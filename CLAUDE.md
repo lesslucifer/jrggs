@@ -39,7 +39,7 @@ pnpm run debug          # Same as watch (with --inspect)
 ### Testing
 ```bash
 pnpm test               # Run all tests in test/**/*.ts
-pnpm run int-test       # Run integration tests in test/integration/**/*.ts
+pnpm run test:int       # Run integration tests in test/integration/**/*.ts
 pnpm run test-file      # Run a specific test file (provide path as argument)
 ```
 

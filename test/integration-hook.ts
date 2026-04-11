@@ -2,18 +2,16 @@ if (!process.env.config) {
     process.env.config = 'env.test.json';
 }
 
-import _ from 'lodash';
-import 'mocha';
+import 'lodash';
 import Program from '../app';
 import TestUtils from './utils/testutils';
+import { beforeAll, afterAll } from 'vitest';
 
-before(async function () {
-    this.timeout(300 * 1000);
+beforeAll(async () => {
     await Program.main();
     await TestUtils.initTestData()
-})
+}, 300_000)
 
-after(async function () {
-    this.timeout(60 * 1000);
+afterAll(async () => {
     await TestUtils.dropDatabase();
-})
+}, 60_000)

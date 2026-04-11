@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import TestUtils from '../utils/testutils';
 import { KudoCategory } from '../../models/kudo.mongo';
 import Kudo from '../../models/kudo.mongo';
@@ -38,7 +38,7 @@ describe('# Kudos API:', () => {
     let regularUserId: string;
     let eligibleUserId: string;
 
-    before(async () => {
+    beforeAll(async () => {
         const suffix = Date.now();
         const admin = await createUser(`kudos_admin_${suffix}@test.com`, [USER_ROLE.USER, USER_ROLE.ADMIN]);
         adminToken = admin.token;
@@ -63,7 +63,7 @@ describe('# Kudos API:', () => {
             .send({ jiraUserId: ELIGIBLE_JIRA_ID });
     });
 
-    after(async () => {
+    afterAll(async () => {
         await Kudo.deleteMany({ fromUserId: { $in: [ELIGIBLE_JIRA_ID] } });
         await KudoEligibleGiver.deleteMany({ userId: { $in: [adminUserId, regularUserId, eligibleUserId] } });
         await User.deleteMany({ _id: { $in: [adminUserId, regularUserId, eligibleUserId].map(id => new ObjectId(id)) } });
@@ -75,7 +75,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos/eligible-givers'))
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send({ userId: eligibleUserId });
-            expect(resp).to.have.status(200);
+            expect(resp.status).toBe(200);
         });
 
         it('non-admin cannot add an eligible giver', async () => {
@@ -83,7 +83,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos/eligible-givers'))
                 .set('Authorization', `Bearer ${userToken}`)
                 .send({ userId: eligibleUserId });
-            expect(resp).to.have.status(403);
+            expect(resp.status).toBe(403);
         });
 
         it('adding a duplicate is idempotent', async () => {
@@ -91,7 +91,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos/eligible-givers'))
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send({ userId: eligibleUserId });
-            expect(resp).to.have.status(200);
+            expect(resp.status).toBe(200);
         });
 
         it('adding non-existent user returns 400', async () => {
@@ -99,7 +99,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos/eligible-givers'))
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send({ userId: '000000000000000000000000' });
-            expect(resp).to.have.status(400);
+            expect(resp.status).toBe(400);
         });
     });
 
@@ -107,18 +107,16 @@ describe('# Kudos API:', () => {
         it('admin can list eligible givers', async () => {
             const resp = await TestUtils.Http
                 .get(TestUtils.envURL('/kudos/eligible-givers'))
-                .set('Authorization', `Bearer ${adminToken}`)
-                .send();
-            expect(resp).to.have.status(200);
-            expect(resp.body.data).to.be.an('array');
+                .set('Authorization', `Bearer ${adminToken}`);
+            expect(resp.status).toBe(200);
+            expect(resp.body.data).toBeInstanceOf(Array);
         });
 
         it('non-admin cannot list eligible givers', async () => {
             const resp = await TestUtils.Http
                 .get(TestUtils.envURL('/kudos/eligible-givers'))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(403);
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(403);
         });
     });
 
@@ -126,20 +124,18 @@ describe('# Kudos API:', () => {
         it('returns eligible=true and jiraUserId for eligible giver', async () => {
             const resp = await TestUtils.Http
                 .get(TestUtils.envURL('/kudos/eligible-givers/me'))
-                .set('Authorization', `Bearer ${eligibleUserToken}`)
-                .send();
-            expect(resp).to.have.status(200);
-            expect(resp.body.data.eligible).to.equal(true);
-            expect(resp.body.data.jiraUserId).to.equal(ELIGIBLE_JIRA_ID);
+                .set('Authorization', `Bearer ${eligibleUserToken}`);
+            expect(resp.status).toBe(200);
+            expect(resp.body.data.eligible).toBe(true);
+            expect(resp.body.data.jiraUserId).toBe(ELIGIBLE_JIRA_ID);
         });
 
         it('returns eligible=false for non-eligible user', async () => {
             const resp = await TestUtils.Http
                 .get(TestUtils.envURL('/kudos/eligible-givers/me'))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(200);
-            expect(resp.body.data.eligible).to.equal(false);
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(200);
+            expect(resp.body.data.eligible).toBe(false);
         });
     });
 
@@ -149,8 +145,8 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
                 .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
-            expect(resp).to.have.status(200);
-            expect(resp.body.data).to.include({ fromUserId: ELIGIBLE_JIRA_ID, toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
+            expect(resp.status).toBe(200);
+            expect(resp.body.data).toMatchObject({ fromUserId: ELIGIBLE_JIRA_ID, toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
         });
 
         it('eligible giver can give a kudo with optional message', async () => {
@@ -158,8 +154,8 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
                 .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.MENTORING, message: 'Great help!' });
-            expect(resp).to.have.status(200);
-            expect(resp.body.data.message).to.equal('Great help!');
+            expect(resp.status).toBe(200);
+            expect(resp.body.data.message).toBe('Great help!');
         });
 
         it('self-kudo is blocked', async () => {
@@ -167,7 +163,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
                 .send({ toUserId: ELIGIBLE_JIRA_ID, category: KudoCategory.TEAMWORK });
-            expect(resp).to.have.status(400);
+            expect(resp.status).toBe(400);
         });
 
         it('non-eligible user cannot give a kudo', async () => {
@@ -175,7 +171,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${userToken}`)
                 .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
-            expect(resp).to.have.status(403);
+            expect(resp.status).toBe(403);
         });
 
         it('invalid category returns 400', async () => {
@@ -183,7 +179,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${eligibleUserToken}`)
                 .send({ toUserId: REGULAR_JIRA_ID, category: 'INVALID_CATEGORY' });
-            expect(resp).to.have.status(400);
+            expect(resp.status).toBe(400);
         });
 
         it('user without jiraUserId cannot give a kudo', async () => {
@@ -197,7 +193,7 @@ describe('# Kudos API:', () => {
                 .post(TestUtils.envURL('/kudos'))
                 .set('Authorization', `Bearer ${noJira.token}`)
                 .send({ toUserId: REGULAR_JIRA_ID, category: KudoCategory.TEAMWORK });
-            expect(resp).to.have.status(400);
+            expect(resp.status).toBe(400);
             await User.deleteOne({ _id: new ObjectId(noJira.userId) });
             await KudoEligibleGiver.deleteOne({ userId: noJira.userId });
         });
@@ -206,44 +202,40 @@ describe('# Kudos API:', () => {
     describe('GET /kudos', () => {
         it('returns kudos sorted by newest first', async () => {
             const resp = await TestUtils.Http
-                .get(TestUtils.envURL('/kudos'))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(200);
+                .get(TestUtils.envURL('/kudos?$fields=*,category&$sort=createdAt:-1'))
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(200);
             const kudos = resp.body.data;
-            expect(kudos).to.be.an('array');
+            expect(kudos).toBeInstanceOf(Array);
             for (let i = 1; i < kudos.length; i++) {
-                expect(kudos[i - 1].createdAt).to.be.gte(kudos[i].createdAt);
+                expect(kudos[i - 1].createdAt).toBeGreaterThanOrEqual(kudos[i].createdAt);
             }
         });
 
         it('filters by category', async () => {
             const resp = await TestUtils.Http
-                .get(TestUtils.envURL(`/kudos?category=${KudoCategory.TEAMWORK}`))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(200);
+                .get(TestUtils.envURL(`/kudos?$fields=*,category,category&category=${KudoCategory.TEAMWORK}`))
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(200);
             const kudos = resp.body.data;
-            kudos.forEach((k: any) => expect(k.category).to.equal(KudoCategory.TEAMWORK));
+            kudos.forEach((k: any) => expect(k.category).toBe(KudoCategory.TEAMWORK));
         });
 
         it('filters by toUserId', async () => {
             const resp = await TestUtils.Http
-                .get(TestUtils.envURL(`/kudos?toUserId=${REGULAR_JIRA_ID}`))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(200);
+                .get(TestUtils.envURL(`/kudos?$fields=*,category&toUserId=${REGULAR_JIRA_ID}`))
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(200);
             const kudos = resp.body.data;
-            kudos.forEach((k: any) => expect(k.toUserId).to.equal(REGULAR_JIRA_ID));
+            kudos.forEach((k: any) => expect(k.toUserId).toBe(REGULAR_JIRA_ID));
         });
 
         it('returns empty array when no kudos in date range', async () => {
             const resp = await TestUtils.Http
-                .get(TestUtils.envURL('/kudos?startDate=2000-01-01&endDate=2000-01-31'))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(200);
-            expect(resp.body.data).to.deep.equal([]);
+                .get(TestUtils.envURL('/kudos?$fields=*,category&$from=createdAt:946684800000&$to=createdAt:949363200000'))
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(200);
+            expect(resp.body.data).toEqual([]);
         });
     });
 
@@ -251,25 +243,22 @@ describe('# Kudos API:', () => {
         it('non-admin cannot remove an eligible giver', async () => {
             const resp = await TestUtils.Http
                 .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
-                .set('Authorization', `Bearer ${userToken}`)
-                .send();
-            expect(resp).to.have.status(403);
+                .set('Authorization', `Bearer ${userToken}`);
+            expect(resp.status).toBe(403);
         });
 
         it('admin can remove an eligible giver', async () => {
             const resp = await TestUtils.Http
                 .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
-                .set('Authorization', `Bearer ${adminToken}`)
-                .send();
-            expect(resp).to.have.status(200);
+                .set('Authorization', `Bearer ${adminToken}`);
+            expect(resp.status).toBe(200);
         });
 
         it('removing non-existent eligible giver returns 400', async () => {
             const resp = await TestUtils.Http
                 .delete(TestUtils.envURL(`/kudos/eligible-givers/${eligibleUserId}`))
-                .set('Authorization', `Bearer ${adminToken}`)
-                .send();
-            expect(resp).to.have.status(400);
+                .set('Authorization', `Bearer ${adminToken}`);
+            expect(resp.status).toBe(400);
         });
     });
 });

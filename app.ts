@@ -1,6 +1,7 @@
 import * as bodyParser from 'body-parser';
 import express from 'express';
 import { APIInfo, ExpressRouter } from 'express-router-ts';
+import { loadRouters } from './serv/load-routers';
 import { Server } from 'http';
 import CONN from './glob/conn';
 import { ENV } from './glob/env';
@@ -34,10 +35,7 @@ export class Program {
         server.use(express.static('static'))
 
         APIInfo.Logging = (winston.npm.levels[ENV.LOG_LEVEL] || 0) > 2 // greater than info level
-        await ExpressRouter.loadDir(server, `${__dirname}/routes`, {
-            log: console.error.bind(console)
-        })
-        // Express router
+        loadRouters(server);
         ExpressRouter.ResponseHandler = this.expressRouterResponse.bind(this)
         ExpressRouter.ErrorHandler = this.expressRouterError.bind(this)
         server.all('*', (req, resp) => {
