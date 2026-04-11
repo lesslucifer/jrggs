@@ -1,6 +1,11 @@
 import { ITelegramCommand, TelegramCommandContext } from '../types';
 import JiraIssue from '../../../models/jira-issue.mongo';
 import { requireLinkedUser } from '../utils';
+import ENV from '../../../glob/env';
+
+function escapeHtml(text: string) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 const issueCmd: ITelegramCommand = {
     name: 'issue',
@@ -17,35 +22,36 @@ const issueCmd: ITelegramCommand = {
         const key = ctx.args[0].toUpperCase();
         const issue = await JiraIssue.findOne({ key });
         if (!issue) {
-            return void await ctx.reply(`Issue *${key}* not found.`);
+            return void await ctx.reply(`Issue ${key} not found.`);
         }
 
         const fields = issue.data?.fields || {};
-        const summary = fields.summary || 'No summary';
-        const status = fields.status?.name || 'Unknown';
-        const assignee = fields.assignee?.displayName || 'Unassigned';
-        const issueType = fields.issuetype?.name || 'Unknown';
+        const summary = escapeHtml(fields.summary || 'No summary');
+        const status = escapeHtml(fields.status?.name || 'Unknown');
+        const assignee = escapeHtml(fields.assignee?.displayName || 'Unassigned');
+        const issueType = escapeHtml(fields.issuetype?.name || 'Unknown');
         const sp = issue.current?.storyPoints ?? fields.story_points ?? fields.customfield_10028 ?? '—';
-        const sprintName = issue.current?.sprintName || fields.sprint?.name || '—';
+        const sprintName = escapeHtml(issue.current?.sprintName || fields.sprint?.name || '—');
+        const jiraUrl = `${ENV.JIRA_HOST}/browse/${key}`;
 
         const lines: string[] = [
-            `*${key}* — ${summary}`,
+            `<a href="${jiraUrl}"><b>${key}</b></a>  ${summary}`,
             '',
-            `Type: ${issueType}`,
-            `Status: ${status}`,
-            `Assignee: ${assignee}`,
-            `SP: ${sp}`,
-            `Sprint: ${sprintName}`,
+            `<b>Type</b>      ${issueType}`,
+            `<b>Status</b>    ${status}`,
+            `<b>Assignee</b>  ${assignee}`,
+            `<b>SP</b>        ${sp}`,
+            `<b>Sprint</b>    ${sprintName}`,
         ];
 
         const userMetrics = issue.metrics?.[user.jiraUserId!];
         if (userMetrics) {
             lines.push('');
-            lines.push('_Your metrics on this issue:_');
-            lines.push(`  SP: ${userMetrics.storyPoints}, Rejections: ${userMetrics.nRejections}, Code Reviews: ${userMetrics.nCodeReviews}, PRs: ${userMetrics.nPRs}`);
+            lines.push('<i>Your metrics on this issue</i>');
+            lines.push(`  SP: ${userMetrics.storyPoints}  |  Rejections: ${userMetrics.nRejections}  |  Reviews: ${userMetrics.nCodeReviews}  |  PRs: ${userMetrics.nPRs}`);
         }
 
-        await ctx.replyMd(lines.join('\n'));
+        await ctx.replyHtml(lines.join('\n'));
     }
 };
 

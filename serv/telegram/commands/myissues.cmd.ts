@@ -1,8 +1,14 @@
 import { ITelegramCommand, TelegramCommandContext } from '../types';
 import JiraIssue from '../../../models/jira-issue.mongo';
 import { requireLinkedUser } from '../utils';
+import ENV from '../../../glob/env';
 
 const STATUS_ORDER: Record<string, number> = { 'To Do': 0, 'In Progress': 1, 'Code Review': 2, 'Done': 3 };
+const STATUS_ICON: Record<string, string> = { 'To Do': '📋', 'In Progress': '🔨', 'Code Review': '👀', 'Done': '✅' };
+
+function escapeHtml(text: string) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 const myissuesCmd: ITelegramCommand = {
     name: 'myissues',
@@ -34,18 +40,20 @@ const myissuesCmd: ITelegramCommand = {
 
         const sortedStatuses = [...grouped.keys()].sort((a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99));
 
-        const lines: string[] = ['*Your Issues*', ''];
+        const lines: string[] = ['<b>Your Issues</b>', ''];
         for (const status of sortedStatuses) {
-            lines.push(`_${status}_`);
+            const icon = STATUS_ICON[status] || '▪️';
+            lines.push(`${icon} <b>${escapeHtml(status)}</b>`);
             for (const issue of grouped.get(status)!) {
-                const summary = (issue.data?.fields?.summary || '').slice(0, 40);
+                const summary = escapeHtml((issue.data?.fields?.summary || '').slice(0, 40));
                 const sp = issue.current?.storyPoints ?? '—';
-                lines.push(`  ${issue.key} (${sp} SP) ${summary}`);
+                const url = `${ENV.JIRA_HOST}/browse/${issue.key}`;
+                lines.push(`  <a href="${url}">${issue.key}</a> (${sp} SP) ${summary}`);
             }
             lines.push('');
         }
 
-        await ctx.replyMd(lines.join('\n'));
+        await ctx.replyHtml(lines.join('\n'));
     }
 };
 

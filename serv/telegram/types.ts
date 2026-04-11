@@ -10,6 +10,7 @@ export interface TelegramCommandContext {
     allCommands: ITelegramCommand[];
     reply: (text: string) => Promise<TelegramBot.Message>;
     replyMd: (text: string) => Promise<TelegramBot.Message>;
+    replyHtml: (text: string) => Promise<TelegramBot.Message>;
 }
 
 export interface ITelegramCommand {

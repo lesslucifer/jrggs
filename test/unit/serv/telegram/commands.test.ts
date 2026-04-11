@@ -12,7 +12,6 @@ import { mockUser, mockAdmin, mockKudo, mockEligibleGiver } from '../../../utils
 import kudoCmd from '../../../../serv/telegram/commands/kudo.cmd';
 import linkCmds from '../../../../serv/telegram/commands/link.cmd';
 import registerCmds from '../../../../serv/telegram/commands/register.cmd';
-import leaderboardCmd from '../../../../serv/telegram/commands/leaderboard.cmd';
 import mykudosCmd from '../../../../serv/telegram/commands/mykudos.cmd';
 import helpCmd from '../../../../serv/telegram/commands/help.cmd';
 
@@ -30,6 +29,7 @@ function buildMockCtx(overrides?: Partial<TelegramCommandContext>): TelegramComm
         allCommands: [],
         reply: sinon.stub().resolves({} as any),
         replyMd: sinon.stub().resolves({} as any),
+        replyHtml: sinon.stub().resolves({} as any),
         ...overrides,
     };
 }
@@ -134,7 +134,7 @@ describe('Telegram Commands', () => {
             expect(insertedDoc.fromUserId).toBe('JIRA-1');
             expect(insertedDoc.toUserId).toBe('JIRA-2');
             expect(insertedDoc.message).toBe('Great job');
-            expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('Kudo sent');
+            expect((ctx.replyHtml as sinon.SinonStub).firstCall.args[0]).toContain('Kudo sent');
         });
 
         it('should send DM to recipient in private chat', async () => {
@@ -169,7 +169,7 @@ describe('Telegram Commands', () => {
 
             const ctx1 = buildMockCtx({ telegramUserId: 300, args: ['@Other', 'first'] });
             await kudoCmd.handler(ctx1);
-            expect((ctx1.reply as sinon.SinonStub).firstCall.args[0]).toContain('Kudo sent');
+            expect((ctx1.replyHtml as sinon.SinonStub).firstCall.args[0]).toContain('Kudo sent');
 
             const ctx2 = buildMockCtx({ telegramUserId: 300, args: ['@Other', 'second'] });
             await kudoCmd.handler(ctx2);
@@ -198,8 +198,8 @@ describe('Telegram Commands', () => {
             expect(otpDoc.type).toBe('TELEGRAM_LINK');
             expect(otpDoc.telegramUserId).toBe(100);
             expect(otpDoc.otp).toHaveLength(32);
-            expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('telegram-link');
-            expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('5 minutes');
+            expect((ctx.replyHtml as sinon.SinonStub).firstCall.args[0]).toContain('telegram-link');
+            expect((ctx.replyHtml as sinon.SinonStub).firstCall.args[0]).toContain('5 minutes');
         });
     });
 
@@ -297,49 +297,6 @@ describe('Telegram Commands', () => {
         });
     });
 
-    describe('leaderboard.cmd', () => {
-        it('should reject unlinked user', async () => {
-            stubModel(sandbox, User, 'findOne', null);
-            const ctx = buildMockCtx({ telegramUserId: 100 });
-            await leaderboardCmd.handler(ctx);
-            expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('not linked');
-        });
-
-        it('should show leaderboard with scored users', async () => {
-            const sender = mockUser({ telegramUserId: 100, jiraUserId: 'JIRA-1' });
-            const kudos = [
-                mockKudo({ fromUserId: 'JIRA-1', toUserId: 'JIRA-2', createdAt: Date.now() }),
-                mockKudo({ fromUserId: 'JIRA-1', toUserId: 'JIRA-2', createdAt: Date.now() }),
-                mockKudo({ fromUserId: 'JIRA-3', toUserId: 'JIRA-2', createdAt: Date.now() }),
-            ];
-            const users = [
-                mockUser({ jiraUserId: 'JIRA-2', name: 'TopUser' }),
-            ];
-
-            const findOneStub = stubModel(sandbox, User, 'findOne', sender);
-            const kudoFindStub = stubModel(sandbox, Kudo, 'find', kudos);
-            const userFindStub = stubModel(sandbox, User, 'find', users);
-
-            const ctx = buildMockCtx({ telegramUserId: 100 });
-            await leaderboardCmd.handler(ctx);
-
-            const reply = (ctx.reply as sinon.SinonStub).firstCall.args[0];
-            expect(reply).toContain('Leaderboard');
-            expect(reply).toContain('TopUser');
-        });
-
-        it('should show no kudos message when empty', async () => {
-            const sender = mockUser({ telegramUserId: 100, jiraUserId: 'JIRA-1' });
-            stubModel(sandbox, User, 'findOne', sender);
-            stubModel(sandbox, Kudo, 'find', []);
-            stubModel(sandbox, User, 'find', []);
-
-            const ctx = buildMockCtx({ telegramUserId: 100 });
-            await leaderboardCmd.handler(ctx);
-            expect((ctx.reply as sinon.SinonStub).firstCall.args[0]).toContain('No kudos');
-        });
-    });
-
     describe('mykudos.cmd', () => {
         it('should reject unlinked user', async () => {
             stubModel(sandbox, User, 'findOne', null);
@@ -365,7 +322,7 @@ describe('Telegram Commands', () => {
             const ctx = buildMockCtx({ telegramUserId: 100, args: ['30'] });
             await mykudosCmd.handler(ctx);
 
-            const reply = (ctx.reply as sinon.SinonStub).firstCall.args[0];
+            const reply = (ctx.replyHtml as sinon.SinonStub).firstCall.args[0];
             expect(reply).toContain('Your Kudos');
             expect(reply).toContain('last 30 days');
         });
@@ -373,12 +330,18 @@ describe('Telegram Commands', () => {
 
     describe('help.cmd', () => {
         it('should list all commands', async () => {
-            const ctx = buildMockCtx();
+            const allCmds = [
+                kudoCmd, mykudosCmd, ...linkCmds, ...registerCmds,
+                helpCmd,
+                { name: 'issue', description: 'Look up a JIRA issue', usage: '/issue KEY-123', handler: async () => {} },
+                { name: 'myissues', description: 'Your active issues', usage: '/myissues', handler: async () => {} },
+                { name: 'mystats', description: 'Your sprint/period stats', usage: '/mystats [sprintId]', handler: async () => {} },
+            ];
+            const ctx = buildMockCtx({ allCommands: allCmds });
             await helpCmd.handler(ctx);
-            const reply = (ctx.reply as sinon.SinonStub).firstCall.args[0];
+            const reply = (ctx.replyHtml as sinon.SinonStub).firstCall.args[0];
             expect(reply).toContain('/kudo');
             expect(reply).toContain('/mykudos');
-            expect(reply).toContain('/leaderboard');
             expect(reply).toContain('/link');
             expect(reply).toContain('/unlink');
             expect(reply).toContain('/help');
@@ -394,6 +357,7 @@ describe('Telegram Commands', () => {
             const mockBot = {
                 on: sinon.stub(),
                 sendMessage: sinon.stub().resolves({}),
+                setMyCommands: sinon.stub().resolves(true),
             } as any;
 
             const dispatcher = new TelegramDispatcher(mockBot);
@@ -411,6 +375,7 @@ describe('Telegram Commands', () => {
             const mockBot = {
                 on: sinon.stub(),
                 sendMessage: sinon.stub().resolves({}),
+                setMyCommands: sinon.stub().resolves(true),
             } as any;
 
             const dispatcher = new TelegramDispatcher(mockBot);
@@ -421,7 +386,7 @@ describe('Telegram Commands', () => {
             await messageHandler(msg);
 
             expect(mockBot.sendMessage.calledOnce).toBe(true);
-            expect(mockBot.sendMessage.firstCall.args[1]).toContain('Kudo Bot Commands');
+            expect(mockBot.sendMessage.firstCall.args[1]).toContain('Available Commands');
         });
 
         it('should reply with reply_to_message_id in group chats', async () => {
@@ -429,6 +394,7 @@ describe('Telegram Commands', () => {
             const mockBot = {
                 on: sinon.stub(),
                 sendMessage: sinon.stub().resolves({}),
+                setMyCommands: sinon.stub().resolves(true),
             } as any;
 
             stubModel(sandbox, AppConfig, 'findOne', { key: 'telegram_registered_groups', value: [{ chatId: 42 }] });
@@ -441,7 +407,7 @@ describe('Telegram Commands', () => {
             await messageHandler(msg);
 
             expect(mockBot.sendMessage.calledOnce).toBe(true);
-            expect(mockBot.sendMessage.firstCall.args[2]).toEqual({ reply_to_message_id: 55 });
+            expect(mockBot.sendMessage.firstCall.args[2]).toMatchObject({ reply_to_message_id: 55 });
         });
     });
 });

@@ -28,11 +28,14 @@ const mykudosCmd: ITelegramCommand = {
         const scores = await computeKudoScores(startDate, endDate, days);
         const receivedK = scores.get(sender.jiraUserId) ?? 0;
 
-        let response = `Your Kudos (last ${days} days)\n\n`;
-        response += `Received: ${received.length} kudos (K: ${receivedK.toFixed(2)})\n`;
-        response += `Given: ${given.length} kudos`;
+        const lines = [
+            `<b>Your Kudos</b> — last ${days} days`,
+            '',
+            `Received: ${received.length} kudos (K: <b>${receivedK.toFixed(2)}</b>)`,
+            `Given: ${given.length} kudos`,
+        ];
 
-        await ctx.reply(response);
+        await ctx.replyHtml(lines.join('\n'));
     }
 };
 

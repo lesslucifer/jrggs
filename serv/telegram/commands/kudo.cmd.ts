@@ -72,13 +72,20 @@ const kudoCmd: ITelegramCommand = {
 
         RATE_LIMIT.set(ctx.telegramUserId, Date.now());
 
-        const response = `Kudo sent!\n${sender.name} gave ${recipient.name} a kudo\n"${message}"`;
-        await ctx.reply(response);
+        const escapedMessage = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const response = [
+            `<b>Kudo sent</b>`,
+            `${sender.name} → ${recipient.name}`,
+            `<i>"${escapedMessage}"</i>`,
+        ].join('\n');
+        await ctx.replyHtml(response);
 
         if (!ctx.isGroupChat && recipient.telegramUserId) {
-            await ctx.bot.sendMessage(recipient.telegramUserId,
-                `You received a kudo from ${sender.name}!\n"${message}"`
-            ).catch(() => {});
+            const dm = [
+                `<b>You received a kudo from ${sender.name}</b>`,
+                `<i>"${escapedMessage}"</i>`,
+            ].join('\n');
+            await ctx.bot.sendMessage(recipient.telegramUserId, dm, { parse_mode: 'HTML' }).catch(() => {});
         }
     }
 };

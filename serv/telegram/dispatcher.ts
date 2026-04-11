@@ -3,7 +3,6 @@ import { ITelegramCommand, TelegramCommandContext } from './types';
 import AppConfig from '../../models/app-config';
 import kudoCmd from './commands/kudo.cmd';
 import mykudosCmd from './commands/mykudos.cmd';
-import leaderboardCmd from './commands/leaderboard.cmd';
 import linkCmds from './commands/link.cmd';
 import registerCmds from './commands/register.cmd';
 import helpCmd from './commands/help.cmd';
@@ -14,7 +13,6 @@ import mystatsCmd from './commands/mystats.cmd';
 const ALL_COMMANDS: ITelegramCommand[] = [
     kudoCmd,
     mykudosCmd,
-    leaderboardCmd,
     ...linkCmds,
     ...registerCmds,
     issueCmd,
@@ -74,6 +72,7 @@ export class TelegramDispatcher {
             allCommands: this.getCommands(),
             reply: (text: string) => this.bot.sendMessage(chatId, text, isGroupChat ? { reply_to_message_id: msg.message_id } : undefined),
             replyMd: (text: string) => this.bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...(isGroupChat ? { reply_to_message_id: msg.message_id } : undefined) }),
+            replyHtml: (text: string) => this.bot.sendMessage(chatId, text, { parse_mode: 'HTML', disable_web_page_preview: true, ...(isGroupChat ? { reply_to_message_id: msg.message_id } : undefined) }),
         };
 
         if (cmd.dmOnly && isGroupChat) {

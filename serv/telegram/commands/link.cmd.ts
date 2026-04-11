@@ -29,7 +29,14 @@ const linkCmd: ITelegramCommand = {
         } as any);
 
         const linkUrl = `${ENV.APP_DOMAIN}/auth/telegram-link?token=${otp}`;
-        await ctx.reply(`Click the link below to connect your Telegram account:\n${linkUrl}\n\nThis link expires in 5 minutes.`);
+        const lines = [
+            '<b>Link your Telegram account</b>',
+            '',
+            linkUrl,
+            '',
+            'This link expires in 5 minutes.',
+        ];
+        await ctx.replyHtml(lines.join('\n'));
     }
 };
 

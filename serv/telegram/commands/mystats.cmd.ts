@@ -56,20 +56,25 @@ const mystatsCmd: ITelegramCommand = {
         const kudoScore = scores.get(user.jiraUserId!) ?? 0;
 
         const lines: string[] = [
-            `*Your Stats — ${periodLabel}*`,
+            `<b>Your Stats</b> — ${periodLabel}`,
             '',
-            `Issues: ${issues.length}`,
-            `Story Points: ${totals.storyPoints}`,
-            `Rejections: ${totals.nRejections}`,
-            `Defects: ${totals.defects}`,
-            `Code Reviews: ${totals.nCodeReviews}`,
-            `PRs: ${totals.nPRs}`,
-            `PR Points: ${totals.prPoints}`,
+            '<b>Work</b>',
+            `  Issues: ${issues.length}`,
+            `  Story Points: ${totals.storyPoints}`,
             '',
-            `Kudo Score (30d): ${kudoScore.toFixed(2)}`,
+            '<b>Quality</b>',
+            `  Rejections: ${totals.nRejections}`,
+            `  Defects: ${totals.defects}`,
+            '',
+            '<b>Collaboration</b>',
+            `  Code Reviews: ${totals.nCodeReviews}`,
+            `  PRs: ${totals.nPRs}`,
+            `  PR Points: ${totals.prPoints}`,
+            '',
+            `Kudo Score (30d): <b>${kudoScore.toFixed(2)}</b>`,
         ];
 
-        await ctx.replyMd(lines.join('\n'));
+        await ctx.replyHtml(lines.join('\n'));
     }
 };
 
