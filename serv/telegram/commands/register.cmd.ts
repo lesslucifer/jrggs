@@ -15,19 +15,19 @@ const registerCmd: ITelegramCommand = {
     adminOnly: true,
     async handler(ctx: TelegramCommandContext) {
         if (!ctx.isGroupChat) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'This command can only be used in a group chat.');
+            return void await ctx.reply('This command can only be used in a group chat.');
         }
 
         const admin = await getLinkedAdmin(ctx.telegramUserId);
         if (!admin) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'You must be a linked admin to register groups.');
+            return void await ctx.reply('You must be a linked admin to register groups.');
         }
 
         const existing = await AppConfig.findOne({ key: 'telegram_registered_groups' });
         const groups: any[] = existing?.value || [];
 
         if (groups.some(g => g.chatId === ctx.chatId)) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'This group is already registered.');
+            return void await ctx.reply('This group is already registered.');
         }
 
         groups.push({
@@ -43,7 +43,7 @@ const registerCmd: ITelegramCommand = {
             { upsert: true }
         );
 
-        await ctx.bot.sendMessage(ctx.chatId, 'This group is now registered for Kudo Bot.');
+        await ctx.reply('This group is now registered for Kudo Bot.');
     }
 };
 
@@ -53,12 +53,12 @@ const unregisterCmd: ITelegramCommand = {
     adminOnly: true,
     async handler(ctx: TelegramCommandContext) {
         if (!ctx.isGroupChat) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'This command can only be used in a group chat.');
+            return void await ctx.reply('This command can only be used in a group chat.');
         }
 
         const admin = await getLinkedAdmin(ctx.telegramUserId);
         if (!admin) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'You must be a linked admin to unregister groups.');
+            return void await ctx.reply('You must be a linked admin to unregister groups.');
         }
 
         const existing = await AppConfig.findOne({ key: 'telegram_registered_groups' });
@@ -66,7 +66,7 @@ const unregisterCmd: ITelegramCommand = {
         const filtered = groups.filter(g => g.chatId !== ctx.chatId);
 
         if (filtered.length === groups.length) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'This group is not registered.');
+            return void await ctx.reply('This group is not registered.');
         }
 
         await AppConfig.updateOne(
@@ -74,7 +74,7 @@ const unregisterCmd: ITelegramCommand = {
             { $set: { value: filtered } }
         );
 
-        await ctx.bot.sendMessage(ctx.chatId, 'This group has been unregistered.');
+        await ctx.reply('This group has been unregistered.');
     }
 };
 

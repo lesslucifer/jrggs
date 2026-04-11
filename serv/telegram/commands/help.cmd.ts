@@ -17,6 +17,15 @@ const helpCmd: ITelegramCommand = {
             '/leaderboard',
             '  Top kudo receivers this month',
             '',
+            '/issue KEY-123',
+            '  Look up a JIRA issue',
+            '',
+            '/myissues',
+            '  Your active issues',
+            '',
+            '/mystats [sprintId]',
+            '  Your sprint/period stats',
+            '',
             '/link',
             '  Link your Telegram account',
             '',
@@ -27,7 +36,7 @@ const helpCmd: ITelegramCommand = {
             '  Show this message',
         ].join('\n');
 
-        await ctx.bot.sendMessage(ctx.chatId, text);
+        await ctx.reply(text);
     }
 };
 

@@ -1,18 +1,14 @@
 import { ITelegramCommand, TelegramCommandContext } from '../types';
-import User from '../../../models/user.mongo';
 import Kudo, { KudoCategory } from '../../../models/kudo.mongo';
 import { computeKudoScores } from '../../kudo-scores';
+import { requireLinkedUser } from '../utils';
 
 const mykudosCmd: ITelegramCommand = {
     name: 'mykudos',
     description: 'Your kudo summary — /mykudos [days]',
     async handler(ctx: TelegramCommandContext) {
-        const sender = await User.findOne({ telegramUserId: ctx.telegramUserId });
-        if (!sender || !sender.jiraUserId) {
-            return void await ctx.bot.sendMessage(ctx.chatId,
-                'Your Telegram account is not linked. Use /link to connect your account.'
-            );
-        }
+        const sender = await requireLinkedUser(ctx);
+        if (!sender) return;
 
         const days = Math.min(Math.max(parseInt(ctx.args[0]) || 30, 1), 365);
         const endDate = Date.now();
@@ -44,7 +40,7 @@ const mykudosCmd: ITelegramCommand = {
         }
         response += `\nGiven: ${given.length} kudos`;
 
-        await ctx.bot.sendMessage(ctx.chatId, response);
+        await ctx.reply(response);
     }
 };
 

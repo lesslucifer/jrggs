@@ -7,6 +7,9 @@ import leaderboardCmd from './commands/leaderboard.cmd';
 import linkCmds from './commands/link.cmd';
 import registerCmds from './commands/register.cmd';
 import helpCmd from './commands/help.cmd';
+import issueCmd from './commands/issue.cmd';
+import myissuesCmd from './commands/myissues.cmd';
+import mystatsCmd from './commands/mystats.cmd';
 
 const ALL_COMMANDS: ITelegramCommand[] = [
     kudoCmd,
@@ -14,6 +17,9 @@ const ALL_COMMANDS: ITelegramCommand[] = [
     leaderboardCmd,
     ...linkCmds,
     ...registerCmds,
+    issueCmd,
+    myissuesCmd,
+    mystatsCmd,
     helpCmd,
 ];
 
@@ -60,12 +66,14 @@ export class TelegramDispatcher {
             chatId,
             telegramUserId: msg.from!.id,
             isGroupChat,
+            reply: (text: string) => this.bot.sendMessage(chatId, text, isGroupChat ? { reply_to_message_id: msg.message_id } : undefined),
+            replyMd: (text: string) => this.bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...(isGroupChat ? { reply_to_message_id: msg.message_id } : undefined) }),
         };
 
         try {
             await cmd.handler(ctx);
         } catch (err: any) {
-            await this.bot.sendMessage(chatId, `Error: ${err.message || 'Something went wrong'}`);
+            await ctx.reply(`Error: ${err.message || 'Something went wrong'}`);
         }
     }
 

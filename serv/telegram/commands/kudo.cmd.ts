@@ -2,6 +2,7 @@ import { ITelegramCommand, TelegramCommandContext } from '../types';
 import User from '../../../models/user.mongo';
 import Kudo, { KudoCategory } from '../../../models/kudo.mongo';
 import KudoEligibleGiver from '../../../models/kudo-eligible-giver.mongo';
+import { requireLinkedUser } from '../utils';
 
 const CATEGORY_MAP: Record<string, KudoCategory> = {
     teamwork: KudoCategory.TEAMWORK, tw: KudoCategory.TEAMWORK,
@@ -19,11 +20,11 @@ const kudoCmd: ITelegramCommand = {
     async handler(ctx: TelegramCommandContext) {
         const lastKudo = RATE_LIMIT.get(ctx.telegramUserId);
         if (lastKudo && Date.now() - lastKudo < 60_000) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'Please wait a minute before sending another kudo.');
+            return void await ctx.reply('Please wait a minute before sending another kudo.');
         }
 
         if (ctx.args.length < 2) {
-            return void await ctx.bot.sendMessage(ctx.chatId,
+            return void await ctx.reply(
                 'Usage: /kudo @username category [message]\nCategories: teamwork (tw), innovation (inn), ownership (own), communication (com), mentoring (men)'
             );
         }
@@ -34,22 +35,17 @@ const kudoCmd: ITelegramCommand = {
 
         const category = CATEGORY_MAP[categoryKey];
         if (!category) {
-            return void await ctx.bot.sendMessage(ctx.chatId,
+            return void await ctx.reply(
                 'Invalid category. Valid options: teamwork (tw), innovation (inn), ownership (own), communication (com), mentoring (men)'
             );
         }
 
-        const sender = await User.findOne({ telegramUserId: ctx.telegramUserId });
-        if (!sender) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'Your Telegram account is not linked. Use /link to connect your account.');
-        }
-        if (!sender.jiraUserId) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'You must link your Jira account before giving kudos.');
-        }
+        const sender = await requireLinkedUser(ctx);
+        if (!sender) return;
 
         const eligible = await KudoEligibleGiver.findOne({ userId: sender._id.toHexString() });
         if (!eligible) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'You are not eligible to give kudos.');
+            return void await ctx.reply('You are not eligible to give kudos.');
         }
 
         let recipient = await User.findOne({
@@ -69,19 +65,19 @@ const kudoCmd: ITelegramCommand = {
         }
 
         if (!recipient) {
-            return void await ctx.bot.sendMessage(ctx.chatId,
+            return void await ctx.reply(
                 `Could not find user ${recipientRef}. Make sure they have linked their Telegram account.`
             );
         }
 
         if (!recipient.jiraUserId) {
-            return void await ctx.bot.sendMessage(ctx.chatId,
-                `${recipient.name} has not linked their Jira account.`
+            return void await ctx.reply(
+                `${recipient.name} has not linked their Jira account. They need an admin to set their Jira User ID in the Users page.`
             );
         }
 
         if (sender.jiraUserId === recipient.jiraUserId) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'You cannot give a kudo to yourself.');
+            return void await ctx.reply('You cannot give a kudo to yourself.');
         }
 
         await Kudo.insertOne({
@@ -95,12 +91,12 @@ const kudoCmd: ITelegramCommand = {
         RATE_LIMIT.set(ctx.telegramUserId, Date.now());
 
         const response = `Kudo sent!\n${sender.name} gave ${recipient.name} a kudo for ${category}${message ? `\n"${message}"` : ''}`;
-        await ctx.bot.sendMessage(ctx.chatId, response);
+        await ctx.reply(response);
 
         if (!ctx.isGroupChat && recipient.telegramUserId) {
             await ctx.bot.sendMessage(recipient.telegramUserId,
                 `You received a kudo from ${sender.name}!\nCategory: ${category}${message ? `\n"${message}"` : ''}`
-            );
+            ).catch(() => {});
         }
     }
 };

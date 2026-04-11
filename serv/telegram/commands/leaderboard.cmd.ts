@@ -3,17 +3,14 @@ import User from '../../../models/user.mongo';
 import { computeKudoScores } from '../../kudo-scores';
 import Kudo from '../../../models/kudo.mongo';
 import moment from 'moment';
+import { requireLinkedUser } from '../utils';
 
 const leaderboardCmd: ITelegramCommand = {
     name: 'leaderboard',
     description: 'Top kudo receivers this month',
     async handler(ctx: TelegramCommandContext) {
-        const sender = await User.findOne({ telegramUserId: ctx.telegramUserId });
-        if (!sender) {
-            return void await ctx.bot.sendMessage(ctx.chatId,
-                'Your Telegram account is not linked. Use /link to connect your account.'
-            );
-        }
+        const sender = await requireLinkedUser(ctx);
+        if (!sender) return;
 
         const now = moment();
         const startDate = now.clone().startOf('month').valueOf();
@@ -35,7 +32,7 @@ const leaderboardCmd: ITelegramCommand = {
             .slice(0, 5);
 
         if (sorted.length === 0) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'No kudos given this month yet.');
+            return void await ctx.reply('No kudos given this month yet.');
         }
 
         const jiraUserIds = sorted.map(([id]) => id);
@@ -49,7 +46,7 @@ const leaderboardCmd: ITelegramCommand = {
             response += `${i + 1}. ${name} — ${count} kudos (K: ${kScore.toFixed(2)})\n`;
         });
 
-        await ctx.bot.sendMessage(ctx.chatId, response);
+        await ctx.reply(response);
     }
 };
 

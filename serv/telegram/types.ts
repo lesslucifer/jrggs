@@ -7,6 +7,8 @@ export interface TelegramCommandContext {
     chatId: number;
     telegramUserId: number;
     isGroupChat: boolean;
+    reply: (text: string) => Promise<TelegramBot.Message>;
+    replyMd: (text: string) => Promise<TelegramBot.Message>;
 }
 
 export interface ITelegramCommand {

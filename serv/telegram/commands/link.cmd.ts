@@ -14,10 +14,7 @@ const linkCmd: ITelegramCommand = {
     async handler(ctx: TelegramCommandContext) {
         const existing = await User.findOne({ telegramUserId: ctx.telegramUserId });
         if (existing) {
-            const target = ctx.isGroupChat ? ctx.telegramUserId : ctx.chatId;
-            return void await ctx.bot.sendMessage(target,
-                `Your Telegram account is already linked to ${existing.name}.`
-            );
+            return void await ctx.reply(`Your Telegram account is already linked to ${existing.name}.`);
         }
 
         const otp = otpGenerator(32);
@@ -30,14 +27,7 @@ const linkCmd: ITelegramCommand = {
         } as any);
 
         const linkUrl = `${ENV.APP_DOMAIN}/auth/telegram-link?token=${otp}`;
-
-        await ctx.bot.sendMessage(ctx.telegramUserId,
-            `Click the link below to connect your Telegram account:\n${linkUrl}\n\nThis link expires in 5 minutes.`
-        );
-
-        if (ctx.isGroupChat) {
-            await ctx.bot.sendMessage(ctx.chatId, 'I sent you a DM with the link. Check your messages.');
-        }
+        await ctx.reply(`Click the link below to connect your Telegram account:\n${linkUrl}\n\nThis link expires in 5 minutes.`);
     }
 };
 
@@ -51,10 +41,10 @@ const unlinkCmd: ITelegramCommand = {
         );
 
         if (result.modifiedCount === 0) {
-            return void await ctx.bot.sendMessage(ctx.chatId, 'Your Telegram account is not linked.');
+            return void await ctx.reply( 'Your Telegram account is not linked.');
         }
 
-        await ctx.bot.sendMessage(ctx.chatId, 'Your Telegram account has been unlinked.');
+        await ctx.reply( 'Your Telegram account has been unlinked.');
     }
 };
 
