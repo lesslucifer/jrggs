@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import '../hook';
+import '../integration-hook';
 import chai = require('chai');
 import chaiAsPromised = require('chai-as-promised');
 import chaiHttp = require('chai-http');

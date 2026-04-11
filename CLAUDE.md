@@ -24,33 +24,33 @@ jrggs is a Node.js/TypeScript backend application that integrates with JIRA and 
 
 ### Building
 ```bash
-npm run build          # Compile TypeScript to dist/
-npm run build-ts       # Same as above
+pnpm run build          # Compile TypeScript to dist/
+pnpm run build-ts       # Same as above
 ```
 
 ### Running
 ```bash
-npm start              # Build then start with watch mode
-npm run serve          # Run compiled code from dist/
-npm run watch          # Build and watch with debugging enabled
-npm run debug          # Same as watch (with --inspect)
+pnpm start              # Build then start with watch mode
+pnpm run serve          # Run compiled code from dist/
+pnpm run watch          # Build and watch with debugging enabled
+pnpm run debug          # Same as watch (with --inspect)
 ```
 
 ### Testing
 ```bash
-npm test               # Run all tests in test/**/*.ts
-npm run int-test       # Run integration tests in test/integration/**/*.ts
-npm run test-file      # Run a specific test file (provide path as argument)
+pnpm test               # Run all tests in test/**/*.ts
+pnpm run int-test       # Run integration tests in test/integration/**/*.ts
+pnpm run test-file      # Run a specific test file (provide path as argument)
 ```
 
 ### Type Checking
 ```bash
-npm run tsc            # Type check without emitting files (tsc --noEmit)
+pnpm run tsc            # Type check without emitting files (tsc --noEmit)
 ```
 
 ### Other
 ```bash
-npm run swagger        # Generate Swagger documentation
+pnpm run swagger        # Generate Swagger documentation
 ```
 
 ## Architecture
