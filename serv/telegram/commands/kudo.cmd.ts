@@ -33,17 +33,13 @@ const kudoCmd: ITelegramCommand = {
 
         let recipient = await User.findOne({
             telegramUserId: { $exists: true },
-            $or: [
-                { name: { $regex: new RegExp(`^${recipientRef}$`, 'i') } },
-            ]
+            telegramUsername: recipientRef.toLowerCase(),
         });
 
         if (!recipient && ctx.msg.entities) {
-            const mentionEntity = ctx.msg.entities.find(e =>
-                e.type === 'text_mention' && e.user
-            );
-            if (mentionEntity?.user) {
-                recipient = await User.findOne({ telegramUserId: mentionEntity.user.id });
+            const textMention = ctx.msg.entities.find(e => e.type === 'text_mention' && e.user);
+            if (textMention?.user) {
+                recipient = await User.findOne({ telegramUserId: textMention.user.id });
             }
         }
 

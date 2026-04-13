@@ -12,6 +12,7 @@ export interface IUser extends IUserCompactInfo {
     isBlocked?: boolean;
     jiraUserId?: string;
     telegramUserId?: number;
+    telegramUsername?: string;
 
     createdAt: number;
     updatedAt: number;

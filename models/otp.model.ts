@@ -13,6 +13,7 @@ export interface IOTP extends IMongoDocument {
     type: OTP_TYPE;
     expiresAt: number;
     telegramUserId?: number;
+    telegramUsername?: string;
 }
 
 export const OTP = MongoModel.createCollection<IOTP>('otp', {

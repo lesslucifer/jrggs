@@ -71,24 +71,30 @@ class TelegramRouter extends ExpressRouter {
         });
         if (!otpDoc) throw new AppLogicError('Invalid or expired link token', 400);
 
-        const existingLink = await User.findOne({ telegramUserId: (otpDoc as any).telegramUserId });
+        const existingLink = await User.findOne({ telegramUserId: otpDoc.telegramUserId });
         if (existingLink) {
             throw new AppLogicError('This Telegram account is already linked to another user', 400);
         }
 
+        const $set: Partial<Pick<IUser, 'telegramUserId' | 'telegramUsername'>> = {
+            telegramUserId: otpDoc.telegramUserId,
+        };
+        if (otpDoc.telegramUsername) {
+            $set.telegramUsername = otpDoc.telegramUsername;
+        }
         await User.updateOne(
             { _id: caller._id },
-            { $set: { telegramUserId: (otpDoc as any).telegramUserId } }
+            { $set }
         );
 
         const bot = TelegramBotService.getBot();
-        if (bot && (otpDoc as any).telegramUserId) {
-            await bot.sendMessage((otpDoc as any).telegramUserId,
+        if (bot && otpDoc.telegramUserId) {
+            await bot.sendMessage(otpDoc.telegramUserId,
                 `Your Telegram account is now linked to ${caller.name}.`
             ).catch(() => {});
         }
 
-        return { linked: true, userName: caller.name, userEmail: caller.email, telegramUserId: (otpDoc as any).telegramUserId };
+        return { linked: true, userName: caller.name, userEmail: caller.email, telegramUserId: otpDoc.telegramUserId };
     }
 }
 

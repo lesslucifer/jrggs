@@ -129,7 +129,6 @@ Background processing services in `serv/jrggs/`:
 - **Authentication:** JWT (jsonwebtoken)
 - **External APIs:** JIRA, Bitbucket, Google APIs
 - **Scheduling:** node-schedule
-- **Testing:** Mocha + Chai
 
 ## Important Notes
 

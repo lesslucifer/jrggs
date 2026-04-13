@@ -26,6 +26,7 @@ const linkCmd: ITelegramCommand = {
             type: OTP_TYPE.TELEGRAM_LINK,
             expiresAt: Date.now() + HC.OTP_EXPIRATION_SECS * 1000,
             telegramUserId: ctx.telegramUserId,
+            telegramUsername: ctx.msg.from?.username?.toLowerCase(),
         } as any);
 
         const linkUrl = `${ENV.APP_DOMAIN}/auth/telegram-link?token=${otp}`;
@@ -48,7 +49,7 @@ const unlinkCmd: ITelegramCommand = {
     async handler(ctx: TelegramCommandContext) {
         const result = await User.updateOne(
             { telegramUserId: ctx.telegramUserId },
-            { $unset: { telegramUserId: '' } }
+            { $unset: { telegramUserId: '', telegramUsername: '' } }
         );
 
         if (result.modifiedCount === 0) {
